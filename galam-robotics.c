@@ -7,17 +7,42 @@ Les messages en provenance de l'interface 0 seront donc recus dans le tableau rx
 les messages à envoyer vers l'interface 0 seront stockés dans le tableau tx0. 
 */
 
-#define BUFFSIZE 8 //Taille des messages en octet, A MODIFIER SI BESOINS
 uint8_t tx0[BUFFSIZE] ;
 uint8_t rx0[BUFFSIZE] ;
 uint8_t tx1[BUFFSIZE] ;
 uint8_t rx1[BUFFSIZE] ;
 uint8_t tx2[BUFFSIZE] ;
 uint8_t rx2[BUFFSIZE] ;
+
+uint8_t father_id = UNKNOWN_ID;
+uint8_t son_ids[] = {UNKNOWN_ID, UNKNOWN_ID};
+int son_nb = 0;
+
+int init_r_depths[] = {1, 1, 1};
+
+uint8_t msg_stored[] = {0, 0, 0};
+uint8_t msg_to_store[] = {0, 0, 0};
+uint8_t msgx0 [NB_MAX_MSG][BUFFSIZE - 1];
+int msgx0_i = 0;
+int msgx0_byte_i = 0;
+int msgx0_bit_offset = 6;
+uint8_t msgx1 [NB_MAX_MSG][BUFFSIZE - 1];
+int msgx1_i = 0;
+int msgx1_byte_i = 0;
+int msgx1_bit_offset = 6;
+uint8_t msgx2 [NB_MAX_MSG][BUFFSIZE - 1];
+int msgx2_i = 0;
+int msgx2_byte_i = 0;
+int msgx2_bit_offset = 6;
+
 /*
-TODO: variables pour stocker des informations comme l'id du pere, les ids des fils,
-l'init-r d'un des fils en attendant l'autre, etc.
+Fonction de stockage de messages, données dans pData jusqu'à byte_i / offset
 */
+void Store_Message(uint8_t *pData, int id, int byte_i, int bit_offset)
+{
+    //TODO
+    // penser a update msg_stored
+}
 
 /*
 Fonction d'initialisation, est appelée une fois au démarrage du microcontroleur.
@@ -34,7 +59,7 @@ void init()
 Fonction principale, la boucle infinie est le coeur du programme
 */
 
-void main(){
+int main() {
     while(1 == 1)
     {
 
@@ -60,19 +85,113 @@ uint8_t RxCallBack(uint8_t id)
             Handle_Message(rx2, id) ;
             Receive_IT(0, rx2, BUFFSIZE) ;
         }
+    return 0;
 }
 
 void Handle_Message(uint8_t *pData, uint8_t id)
 {
-    //TODO: rediriger vers Handle_Message_init ou Handle_Message_send en fonction de l'entete
+    uint8_t header = ((pData[0])&0b11000000) >> 6;
+    if (header == 0) // init
+    {
+	Handle_Message_init(pData, id);
+    }
+    else if (header == 1) // init_r
+    {
+	Handle_Message_init_r(pData, id);
+    }
 }
 
 void Handle_Message_init(uint8_t *pData, uint8_t id)
 {
-    //TODO
+    father_id = id;
+    if (((pData[0])&0b00111111) == 1) // si ce n'est pas un message fantôme
+    { 
+	for (int trsmt_id = 0; trsmt_id < 3; trsmt_id++) // on transmet l'init
+	{
+	    if (trsmt_id != father_id) // pas au père
+	    {
+		uint8_t t = Transmit(trsmt_id, pData, BUFFSIZE, TIME_OUT);
+		if (t == 1) // si la transmission a réussi, on ajoute le fils
+		{
+		    son_ids[son_nb] = trsmt_id;
+		    son_nb++;
+		}
+
+	    }
+	}
+    }
 }
 
-void Handle_Message_send(uint8_t *pData)
+
+void Handle_Message_init_r(uint8_t *pData, uint8_t id)
 {
-    //TODO
+    // on regarde combien de message on doit stocker
+    if (msg_to_store[id] == 0)
+    {
+	msg_to_store[id] = (pData[0])&0b00111111;
+    }
+    
+    
+    // on lit pData pour retenir seulement ce qui est important si c'est le dernier message
+    // ou retenir la profondeur a laquelle on s'est arreté
+    uint8_t and_op = 0b11000000;
+    int bit_offset = 6;
+    int byte_i = 1;
+    int depth = init_r_depths[id];
+    while(depth > 0 && byte_i < BUFFSIZE)
+    {
+	if (((pData[byte_i])&and_op) >> bit_offset == END_NODE)
+	{
+	    depth--;
+	}
+	else
+	{
+	    depth++;
+	}
+
+	if (bit_offset == 0) {
+	    byte_i++;
+	    and_op = 0b11000000;
+	    bit_offset = 6;
+	}
+	else
+	{
+	    and_op = and_op >> 2;
+	    bit_offset -= 2;
+	}
+    }
+
+    // on stocke le message
+    Store_Message(pData, id, byte_i, bit_offset);
+
+    if (compareArrays(&msg_stored, &msg_to_store, 3)) // si on a recu tous les messages de init_r
+    {
+	Send_init_r();
+    }
+
+}
+
+
+/*
+Fonction d'envoi d'init_r
+*/
+void Send_init_r()
+{
+
+}
+
+
+/*
+Fonction de comparaison de tableaux
+*/
+int compareArrays(uint8_t *a, uint8_t *b, int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+	if (a[i] != b[i])
+	{
+	    return 0;
+	}
+    }
+    return 1;
 }

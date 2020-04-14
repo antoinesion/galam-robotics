@@ -1,3 +1,9 @@
+#include <stdint.h>
+#define BUFFSIZE 32
+#define NB_MAX_MSG 4
+#define TIME_OUT 500
+#define UNKNOWN_ID 4
+#define END_NODE 3
 /*
 Ce fichier header décrit certaines fonctions utilisées dans le code. 
 N'hesitez pas à en rajouter !
@@ -35,9 +41,22 @@ Fonctions de gestion de message. Le protocole doit être implémenté dedans.
 Il est possible de changer le prototype de la fonction si cela semble pertinent,
 il faudra alors modifier les autres fonctions
 */
+void Store_Message(uint8_t *pData, int id, int byte_i, int bit_offset);
 
-void Handle_Message(uint8_t *pData, uint8_t id)
+void Handle_Message(uint8_t *pData, uint8_t id);
 
-void Handle_Message_init(uint8_t *pData, uint8_t id)
+void Handle_Message_init(uint8_t *pData, uint8_t id);
 
-void Handle_Message_send(uint8_t *pData)
+void Handle_Message_init_r(uint8_t *pData, uint8_t id);
+
+void Send_init_r();
+
+void Handle_Message_to_son(uint8_t *pData);
+
+void Handle_Message_to_father(uint8_t *pData);
+
+/*
+Fonctions utilitaires
+*/
+int compareArrays(uint8_t[] a, uint8_t[] b, int size);
+
