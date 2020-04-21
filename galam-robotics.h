@@ -53,7 +53,7 @@ void Handle_Message_init_r(uint8_t *pData, uint8_t id);
 
 void Send_init_r();
 
-void Handle_Message_to_son(uint8_t *pData);
+void Handle_Message_to_son(uint8_t *pData, uint8_t id);
 
 void Handle_Message_to_father(uint8_t *pData);
 

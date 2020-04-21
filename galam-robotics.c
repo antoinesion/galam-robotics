@@ -39,6 +39,7 @@ int msgx2_bit_offset = 6;
 Fonction de stockage de messages, données dans pData jusqu'à byte_i / offset
 */
 void Store_Message(uint8_t *pData, int id, int byte_i_end, int bit_offset_end)
+    // TODO : stocker betement !
 {
     uint8_t* msg_storage[NB_MAX_MSG];
     int* msg_i;
@@ -111,7 +112,7 @@ void Store_Message(uint8_t *pData, int id, int byte_i_end, int bit_offset_end)
     msg_stored[id]++;
 }
 
-void emptyStorage() {
+void emptyStorage(int id) {
     // TODO
 }
 
@@ -170,6 +171,7 @@ void Handle_Message(uint8_t *pData, uint8_t id)
     {
 	Handle_Message_init_r(pData, id);
     }
+    // ...
 }
 
 void Handle_Message_init(uint8_t *pData, uint8_t id)
@@ -185,6 +187,7 @@ void Handle_Message_init(uint8_t *pData, uint8_t id)
 		if (t == 1) // si la transmission a réussi, on ajoute le fils
 		{
 		    son_ids[son_nb] = trsmt_id;
+		    msg_to_store[trsmt_id] = 1;
 		    son_nb++;
 		}
 
@@ -201,12 +204,12 @@ void Handle_Message_init(uint8_t *pData, uint8_t id)
 void Handle_Message_init_r(uint8_t *pData, uint8_t id)
 {
     // on regarde combien de message on doit stocker
-    if (msg_to_store[id] == 0)
+    if (msg_to_store[id] == 1)
     {
 	msg_to_store[id] = (pData[0])&0b00111111;
     }
     
-    
+    // TODO: stocker betement !
     // on lit pData pour retenir seulement ce qui est important (si c'est le dernier message,
     // sa longueur ne sera sans doute pas egale a BUFFSIZE)
     // ou retenir la profondeur du reseau a laquelle on s'est arreté au dernier message recu
@@ -238,6 +241,7 @@ void Handle_Message_init_r(uint8_t *pData, uint8_t id)
 	}
     }
 
+
     // on stocke le message
     Store_Message(pData, id, byte_i, bit_offset);
 
@@ -260,6 +264,21 @@ void Send_init_r()
     }
 }
 
+/*
+Fonction pour transmettre un message a un fils
+*/
+void Handle_Message_to_son(uint8_t *pData, uint8_t id)
+{
+    // TODO : stocker les messages et quand on a tout recu appeler une fonction Send_Message_to_son()
+}
+
+/*
+Fonction pour transmettre un message au pere
+*/
+void Handle_Message_to_father(uint8_t *pData)
+{
+    // TODO : directment transmettre au pere, meme pas besoin de stocker ?
+}
 
 /*
 Fonction de comparaison de tableaux
