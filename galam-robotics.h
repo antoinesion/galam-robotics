@@ -43,6 +43,8 @@ il faudra alors modifier les autres fonctions
 */
 void Store_Message(uint8_t *pData, int id, int byte_i, int bit_offset);
 
+void emptyStorage(int id);
+
 void Handle_Message(uint8_t *pData, uint8_t id);
 
 void Handle_Message_init(uint8_t *pData, uint8_t id);
@@ -58,5 +60,5 @@ void Handle_Message_to_father(uint8_t *pData);
 /*
 Fonctions utilitaires
 */
-int compareArrays(uint8_t[] a, uint8_t[] b, int size);
+int compareArrays(uint8_t *a, uint8_t *b, int size);
 
