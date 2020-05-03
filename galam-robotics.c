@@ -18,102 +18,77 @@ uint8_t father_id = UNKNOWN_ID;
 uint8_t son_ids[] = {UNKNOWN_ID, UNKNOWN_ID};
 int son_nb = 0;
 
-int init_r_depths[] = {1, 1, 1};
-
 uint8_t msg_stored[] = {0, 0, 0};
 uint8_t msg_to_store[] = {0, 0, 0};
-uint8_t msgx0 [NB_MAX_MSG][BUFFSIZE - 1];
-int msgx0_i = 0;
-int msgx0_byte_i = 0;
-int msgx0_bit_offset = 6;
-uint8_t msgx1 [NB_MAX_MSG][BUFFSIZE - 1];
-int msgx1_i = 0;
-int msgx1_byte_i = 0;
-int msgx1_bit_offset = 6;
-uint8_t msgx2 [NB_MAX_MSG][BUFFSIZE - 1];
-int msgx2_i = 0;
-int msgx2_byte_i = 0;
-int msgx2_bit_offset = 6;
+uint8_t msgx0 [NB_MAX_MSG][BUFFSIZE];
+uint8_t msgx1 [NB_MAX_MSG][BUFFSIZE];
+uint8_t msgx2 [NB_MAX_MSG][BUFFSIZE];
 
 /*
-Fonction de stockage de messages, données dans pData jusqu'à byte_i / offset
+Fonction de stockage de messages
 */
-void Store_Message(uint8_t *pData, int id, int byte_i_end, int bit_offset_end)
-    // TODO : stocker betement !
+void Store_Message(uint8_t *pData, uint8_t id)
 {
-    uint8_t* msg_storage[NB_MAX_MSG];
-    int* msg_i;
-    int* msg_byte_i;
-    int* msg_bit_offset;
+    // on pointe vers le stockage correspondant a l'id
+    uint8_t* msg_storage;
     if (id == 0)
     {
-	for (int i = 0; i < NB_MAX_MSG; i++)
-	{
-	    msg_storage[i] = msgx0[i];
-	}
-	msg_i = &msgx0_i;
-	msg_byte_i = &msgx0_byte_i;
-	msg_bit_offset = &msgx0_bit_offset;
+	msg_storage = &msgx0[msg_stored[id]][0];
     }
     else if (id == 1)
     {
-	for (int i = 0; i < NB_MAX_MSG; i++)
-	{
-	    msg_storage[i] = msgx1[i];
-	}
-	msg_i = &msgx1_i;
-	msg_byte_i = &msgx1_byte_i;
-	msg_bit_offset = &msgx1_bit_offset;
+	msg_storage = &msgx1[msg_stored[id]][0];
     }
     else if (id == 2)
     {
-	for (int i = 0; i < NB_MAX_MSG; i++)
-	{
-	    msg_storage[i] = msgx2[i];
-	}
-	msg_i = &msgx2_i;
-	msg_byte_i = &msgx2_byte_i;
-	msg_bit_offset = &msgx2_bit_offset;
+	msg_storage = &msgx2[msg_stored[id]][0];
     }
 
-    int byte_i = 0;
-    int bit_offset = 6;
-    uint8_t and_op = 0b11000000;
-    while (byte_i < byte_i_end || bit_offset < bit_offset_end) {
-	msg_storage[*msg_i][*msg_byte_i] += (((pData[byte_i]&and_op) >> bit_offset) << *msg_bit_offset);
-
-	
-	if (bit_offset == 0) {
-	    byte_i++;
-	    and_op = 0b11000000;
-	    bit_offset = 6;
-	}
-	else
-	{
-	    and_op = and_op >> 2;
-	    bit_offset -= 2;
-	}
-
-	if (*msg_bit_offset == 0) {
-	    (*msg_byte_i)++;
-	    if (*msg_byte_i == BUFFSIZE)
-	    {
-		(*msg_i)++;
-		*msg_byte_i = 0;
-	    }
-	    *msg_bit_offset = 6;
-	}
-	else
-	{
-	    *msg_bit_offset -= 2;
-	}
+    // on copie les donnees
+    for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
+    {
+	msg_storage[byte_i] = pData[byte_i];
     }
 
+    // on actualise cette variable
     msg_stored[id]++;
 }
 
-void emptyStorage(int id) {
-    // TODO
+void emptyStorage(int id)
+{
+    // on pointe vers le stockage correspondant a l'id
+    uint8_t* msg_storage[NB_MAX_MSG];
+    if (id == 0)
+    {
+	for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	{
+	    msg_storage[msg_i] = &msgx0[msg_i][0];
+	}
+    }
+    else if (id == 1)
+    {
+	for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	{
+	    msg_storage[msg_i] = &msgx1[msg_i][0];
+	}
+    }
+    else if (id == 2)
+    {
+	for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	{
+	    msg_storage[msg_i] = &msgx2[msg_i][0];
+	}
+    }
+
+    // on met des 0 partout
+    for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++) {
+	for (int byte_i = 0; byte_i < BUFFSIZE - 1; byte_i++) {
+	    msg_storage[byte_i] = 0;
+	}
+    }
+
+    // on actualise cette variable
+    msg_stored[id] = 0;
 }
 
 /*
@@ -141,37 +116,44 @@ int main() {
 uint8_t RxCallBack(uint8_t id)
 {
     if(id == 0)
-        {
-            Handle_Message(rx0, id) ;
-            Receive_IT(0, rx0, BUFFSIZE) ;
-        }
+    {
+	Handle_Message(rx0, id) ;
+	Receive_IT(0, rx0, BUFFSIZE) ;
+    }
 
     if(id == 1)
-        {
-            Handle_Message(rx1, id) ;
-            Receive_IT(0, rx1, BUFFSIZE) ;
-        }
+    {
+	Handle_Message(rx1, id) ;
+	Receive_IT(0, rx1, BUFFSIZE) ;
+    }
 
     if(id == 2)
-        {
-            Handle_Message(rx2, id) ;
-            Receive_IT(0, rx2, BUFFSIZE) ;
-        }
+    {
+	Handle_Message(rx2, id) ;
+	Receive_IT(0, rx2, BUFFSIZE) ;
+    }
     return 0;
 }
 
 void Handle_Message(uint8_t *pData, uint8_t id)
 {
-    uint8_t header = ((pData[0])&0b11000000) >> 6;
-    if (header == 0) // init
+    uint8_t msg_type = ((pData[0])&0b11000000) >> 6;
+    if (msg_type == 0) // init
     {
 	Handle_Message_init(pData, id);
     }
-    else if (header == 1) // init_r
+    else if (msg_type == 1) // init_r
     {
 	Handle_Message_init_r(pData, id);
     }
-    // ...
+    else if (msg_type == 2) // message to son
+    {
+	Handle_Message_to_son(pData, id);
+    }
+    else if (msg_type == 4) // message to source
+    {
+	Handle_Message_to_source(pData);
+    }
 }
 
 void Handle_Message_init(uint8_t *pData, uint8_t id)
@@ -208,48 +190,14 @@ void Handle_Message_init_r(uint8_t *pData, uint8_t id)
     {
 	msg_to_store[id] = (pData[0])&0b00111111;
     }
-    
-    // TODO: stocker betement !
-    // on lit pData pour retenir seulement ce qui est important (si c'est le dernier message,
-    // sa longueur ne sera sans doute pas egale a BUFFSIZE)
-    // ou retenir la profondeur du reseau a laquelle on s'est arreté au dernier message recu
-    // par la meme interface
-    uint8_t and_op = 0b11000000;
-    int bit_offset = 6;
-    int byte_i = 1;
-    int depth = init_r_depths[id];
-    while(depth > 0 && byte_i < BUFFSIZE)
-    {
-	if (((pData[byte_i])&and_op) >> bit_offset == END_NODE)
-	{
-	    depth--;
-	}
-	else
-	{
-	    depth++;
-	}
-
-	if (bit_offset == 0) {
-	    byte_i++;
-	    and_op = 0b11000000;
-	    bit_offset = 6;
-	}
-	else
-	{
-	    and_op = and_op >> 2;
-	    bit_offset -= 2;
-	}
-    }
-
 
     // on stocke le message
-    Store_Message(pData, id, byte_i, bit_offset);
+    Store_Message(pData, id);
 
     if (compareArrays(msg_stored, msg_to_store, 3)) // si on a recu tous les messages de init_r
     {
 	Send_init_r();
     }
-
 }
 
 
@@ -258,9 +206,77 @@ Fonction d'envoi d'init_r
 */
 void Send_init_r()
 {
-    if (son_nb == 0)
-    {
+    // tableau de stockage du message init_r a envoyer
+    uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE - 1];
+    // iterateurs d'ecriture
+    int msg_i = 0;
+    int byte_i = 1;
+    int offset = 6;
 
+    // pour chaque fils
+    for (int son_i = 0; son_i < son_nb; son_i++)
+    {
+	// on recupere son identifiant
+	uint8_t id = son_ids[son_i];
+	// on commence le message par son identifiant (voir algorithme)
+	msg_to_send[msg_i][byte_i] += id << offset;
+	// on met a jout les iterateurs d'ecriture
+	update_iterators(&msg_i, &byte_i, &offset, NULL);
+
+	// iterateurs de lecture du message recu par ce fils
+	int son_msg_i = 0;
+	int son_byte_i = 1;
+	int son_offset = 6;
+	uint8_t and_op = 0b11000000;
+	// tableau contenant le message recu par ce fils (on le fait pointer vers le bon
+	// tableau de stockage)
+	uint8_t* msg_storage[NB_MAX_MSG];
+	if (id == 0)
+	{
+	    for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	    {
+		msg_storage[msg_i] = &msgx0[msg_i][0];
+	    }
+	}
+	else if (id == 1)
+	{
+	    for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	    {
+		msg_storage[msg_i] = &msgx1[msg_i][0];
+	    }
+	}
+	else if (id == 2)
+	{
+	    for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	    {
+		msg_storage[msg_i] = &msgx2[msg_i][0];
+	    }
+	}
+
+	// on lit le message pour trouver sa fin grace a la profondeur dans l'arbre
+	int depth = 1;
+	while (depth > 0)
+	{
+	    uint8_t value = (msg_storage[son_msg_i][son_byte_i]&and_op) >> son_offset;
+	    // pour chaque valeur qu'on lit, on l'ecrit dans le message a envoyer
+	    msg_to_send[msg_i][byte_i] += value << offset;
+	    update_iterators(&msg_i, &byte_i, &offset, NULL);
+	    update_iterators(&son_msg_i, &son_byte_i, &son_offset, &and_op);
+
+	    if (value == END_NODE) {depth--;} // on diminue la pronfondeur en fin de noeud
+	    else {depth++;} // sinon on augmente
+	}
+    }
+
+    msg_to_send[msg_i][byte_i] += END_NODE << offset; // derniere valeur pour le message a envoyer
+
+    // on transmet les message avec le bon header a chaque fois
+    uint8_t msg_type = 2;
+    uint8_t nb_msg = msg_i + 1;
+    for (int i = 0; i <= msg_i; i++)
+    {
+	msg_to_send[i][0] = (msg_type << 6) + nb_msg;
+	Transmit(father_id, msg_to_send[i], BUFFSIZE, TIME_OUT);
     }
 }
 
@@ -293,4 +309,36 @@ int compareArrays(uint8_t *a, uint8_t *b, int size)
 	}
     }
     return 1;
+}
+
+/*
+Fonction pour mettre a jour les iterateurs durant la lecture/ecriture de message
+*/
+void update_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op)
+{
+    if (*offset == 0) {
+	*offset = 6;
+	if (and_op != NULL)
+	{
+	    *and_op = 0b11000000;
+	}
+
+	if (*byte_i == BUFFSIZE - 1)
+	{
+	    *msg_i += 1;
+	    *byte_i = 1;
+	}
+	else
+	{
+	    *byte_i += 1;
+	}
+    }
+    else
+    {
+	*offset -= 2;
+	if (and_op != NULL)
+	{
+	    *and_op = *and_op >> 2;
+	}
+    }
 }

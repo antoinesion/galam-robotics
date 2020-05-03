@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #define BUFFSIZE 32
 #define NB_MAX_MSG 4
 #define TIME_OUT 500
@@ -18,7 +19,7 @@ Cette méthode n'est pas bloquante (ie le programme continue de fonctionner apr�
 l'appel de cette fonction sans attendre que la fonction ait terminée). 
 Quand la fonction termine sans erreur, elle appelle automatiquement la fonction RxCallback.
 */
-uint8_t Receive_IT(uint8_t id, uint8_t *pData, uint16_t length ) ;
+uint8_t Receive_IT(uint8_t id, uint8_t *pData, uint16_t length) ;
 
 /*
 Cette fonction est appelée dès que la fonction Receive_IT termine sans erreur 
@@ -41,7 +42,7 @@ Fonctions de gestion de message. Le protocole doit être implémenté dedans.
 Il est possible de changer le prototype de la fonction si cela semble pertinent,
 il faudra alors modifier les autres fonctions
 */
-void Store_Message(uint8_t *pData, int id, int byte_i, int bit_offset);
+void Store_Message(uint8_t *pData, uint8_t id);
 
 void emptyStorage(int id);
 
@@ -55,10 +56,11 @@ void Send_init_r();
 
 void Handle_Message_to_son(uint8_t *pData, uint8_t id);
 
-void Handle_Message_to_father(uint8_t *pData);
+void Handle_Message_to_source(uint8_t *pData);
 
 /*
 Fonctions utilitaires
 */
 int compareArrays(uint8_t *a, uint8_t *b, int size);
 
+void update_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op);
