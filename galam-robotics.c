@@ -207,11 +207,11 @@ Fonction d'envoi d'init_r
 void Send_init_r()
 {
     // tableau de stockage du message init_r a envoyer
-    uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE - 1];
+    uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE];
     // iterateurs d'ecriture
-    int msg_i = 0;
-    int byte_i = 1;
-    int offset = 6;
+    int write_msg_i = 0;
+    int write_byte_i = 1;
+    int write_offset = 6;
 
     // pour chaque fils
     for (int son_i = 0; son_i < son_nb; son_i++)
@@ -219,9 +219,9 @@ void Send_init_r()
 	// on recupere son identifiant
 	uint8_t id = son_ids[son_i];
 	// on commence le message par son identifiant (voir algorithme)
-	msg_to_send[msg_i][byte_i] += id << offset;
+	msg_to_send[write_msg_i][write_byte_i] += id << write_offset;
 	// on met a jout les iterateurs d'ecriture
-	update_iterators(&msg_i, &byte_i, &offset, NULL);
+	update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
 
 	// iterateurs de lecture du message recu par ce fils
 	int son_msg_i = 0;
@@ -259,21 +259,24 @@ void Send_init_r()
 	{
 	    uint8_t value = (msg_storage[son_msg_i][son_byte_i]&and_op) >> son_offset;
 	    // pour chaque valeur qu'on lit, on l'ecrit dans le message a envoyer
-	    msg_to_send[msg_i][byte_i] += value << offset;
-	    update_iterators(&msg_i, &byte_i, &offset, NULL);
+	    msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
+	    update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
 	    update_iterators(&son_msg_i, &son_byte_i, &son_offset, &and_op);
 
 	    if (value == END_NODE) {depth--;} // on diminue la pronfondeur en fin de noeud
 	    else {depth++;} // sinon on augmente
 	}
+
+	emptyStorage(id);
     }
 
-    msg_to_send[msg_i][byte_i] += END_NODE << offset; // derniere valeur pour le message a envoyer
+    // derniere valeur pour le message a envoyer
+    msg_to_send[write_msg_i][write_byte_i] += END_NODE << write_offset; 
 
     // on transmet les message avec le bon header a chaque fois
     uint8_t msg_type = 2;
-    uint8_t nb_msg = msg_i + 1;
-    for (int i = 0; i <= msg_i; i++)
+    uint8_t nb_msg = write_msg_i + 1;
+    for (int i = 0; i <= write_msg_i; i++)
     {
 	msg_to_send[i][0] = (msg_type << 6) + nb_msg;
 	Transmit(father_id, msg_to_send[i], BUFFSIZE, TIME_OUT);
@@ -285,15 +288,107 @@ Fonction pour transmettre un message a un fils
 */
 void Handle_Message_to_son(uint8_t *pData, uint8_t id)
 {
-    // TODO : stocker les messages et quand on a tout recu appeler une fonction Send_Message_to_son()
+    // on regarde combien de message on doit stocker
+    if (msg_to_store[id] == 1)
+    {
+	msg_to_store[id] = (pData[0])&0b00111111;
+    }
+
+    // on stocke le message
+    Store_Message(pData, id);
+
+    if (msg_stored[id] == msg_to_store[id])
+    {
+	uint8_t next_id;
+	if (father_id == 0)
+	{
+	    next_id = (msgx0[0][1]&0b11000000) >> 6;
+	}
+	else if (father_id == 1)
+	{
+	    next_id = (msgx1[0][1]&0b11000000) >> 6;
+	}
+	else if (father_id == 2)
+	{
+	    next_id = (msgx2[0][1]&0b11000000) >> 6;
+	}
+
+	if (next_id != END_HEADER)
+	{
+	    Send_Message_to_son();
+	}
+	else
+	{
+	    // le message est pour ce noeud
+	}
+    }
 }
 
 /*
-Fonction pour transmettre un message au pere
+Fonction d'envoi d'un message a un des fils
 */
-void Handle_Message_to_father(uint8_t *pData)
+void Send_Message_to_son()
 {
-    // TODO : directment transmettre au pere, meme pas besoin de stocker ?
+    uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE];
+    // iterateurs d'ecriture
+    int write_msg_i = 0;
+    int write_byte_i = 1;
+    int write_offset = 6;
+
+    int read_msg_i = 0;
+    int read_byte_i = 1;
+    int read_offset = 6;
+    uint8_t and_op = 0b11000000;
+    uint8_t* msg_storage[NB_MAX_MSG];
+    if (father_id == 0)
+    {
+	for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	{
+	    msg_storage[msg_i] = &msgx0[msg_i][0];
+	}
+    }
+    else if (father_id == 1)
+    {
+	for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	{
+	    msg_storage[msg_i] = &msgx1[msg_i][0];
+	}
+    }
+    else if (father_id == 2)
+    {
+	for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+	{
+	    msg_storage[msg_i] = &msgx2[msg_i][0];
+	}
+    }
+
+    uint8_t next_id = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
+    update_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op);
+
+    while (read_msg_i < msg_stored[father_id]) // TODO: demander a Samuel
+    {
+	uint8_t value = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
+	msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
+	update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
+	update_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op);
+    }
+
+    // on transmet les message avec le bon header a chaque fois
+    uint8_t msg_type = 3;
+    uint8_t nb_msg = write_msg_i + 1;
+    for (int i = 0; i <= write_msg_i; i++)
+    {
+	msg_to_send[i][0] = (msg_type << 6) + nb_msg;
+	Transmit(next_id, msg_to_send[i], BUFFSIZE, TIME_OUT);
+    }
+}
+
+/*
+Fonction pour transmettre un message a la source
+*/
+void Handle_Message_to_source(uint8_t *pData)
+{
+    Transmit(father_id, pData, BUFFSIZE, TIME_OUT);
 }
 
 /*

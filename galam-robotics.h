@@ -5,6 +5,7 @@
 #define TIME_OUT 500
 #define UNKNOWN_ID 4
 #define END_NODE 3
+#define END_HEADER 3
 /*
 Ce fichier header décrit certaines fonctions utilisées dans le code. 
 N'hesitez pas à en rajouter !
@@ -55,6 +56,8 @@ void Handle_Message_init_r(uint8_t *pData, uint8_t id);
 void Send_init_r();
 
 void Handle_Message_to_son(uint8_t *pData, uint8_t id);
+
+void Send_Message_to_son();
 
 void Handle_Message_to_source(uint8_t *pData);
 
