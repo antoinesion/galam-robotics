@@ -7,7 +7,7 @@ Les messages en provenance de l'interface 0 seront donc recus dans le tableau rx
 les messages à envoyer vers l'interface 0 seront stockés dans le tableau tx0. 
 */
 
-uint8_t tx0[BUFFSIZE] ;
+uint8_t tx0[BUFFSIZE] ; // TODO: est-ce utile ?
 uint8_t rx0[BUFFSIZE] ;
 uint8_t tx1[BUFFSIZE] ;
 uint8_t rx1[BUFFSIZE] ;
@@ -329,16 +329,19 @@ Fonction d'envoi d'un message a un des fils
 */
 void Send_Message_to_son()
 {
+    // tableau de stockage du message a envoyer
     uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE];
     // iterateurs d'ecriture
     int write_msg_i = 0;
     int write_byte_i = 1;
     int write_offset = 6;
 
+    // iterateurs de lecture
     int read_msg_i = 0;
     int read_byte_i = 1;
     int read_offset = 6;
     uint8_t and_op = 0b11000000;
+    // on recupere le message stocker en pointant vers le bon identifiant du pere
     uint8_t* msg_storage[NB_MAX_MSG];
     if (father_id == 0)
     {
@@ -362,6 +365,7 @@ void Send_Message_to_son()
 	}
     }
 
+    // segment routing : il faut transmettre le message au prochain id
     uint8_t next_id = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
     update_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op);
 
