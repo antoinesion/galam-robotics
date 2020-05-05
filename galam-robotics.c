@@ -273,7 +273,7 @@ void Send_init_r()
     // derniere valeur pour le message a envoyer
     msg_to_send[write_msg_i][write_byte_i] += END_NODE << write_offset; 
 
-    // on transmet les message avec le bon header a chaque fois
+    // on transmet les messages avec le bon header a chaque fois
     uint8_t msg_type = 2;
     uint8_t nb_msg = write_msg_i + 1;
     for (int i = 0; i <= write_msg_i; i++)
@@ -378,7 +378,9 @@ void Send_Message_to_son()
 	update_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op);
     }
 
-    // on transmet les message avec le bon header a chaque fois
+    emptyStorage(father_id);
+
+    // on transmet les messages avec le bon header a chaque fois
     uint8_t msg_type = 3;
     uint8_t nb_msg = write_msg_i + 1;
     for (int i = 0; i <= write_msg_i; i++)
