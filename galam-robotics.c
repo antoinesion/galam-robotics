@@ -371,6 +371,7 @@ void Send_Message_to_son()
 
     while (read_msg_i < msg_stored[father_id]) // TODO: demander a Samuel
     {
+	// TODO: peut etre aller de 1 bit en 1 bit ici, ça serait plus logique
 	uint8_t value = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
 	msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
 	update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
@@ -414,6 +415,7 @@ int compareArrays(uint8_t *a, uint8_t *b, int size)
 Fonction pour mettre a jour les iterateurs durant la lecture/ecriture de message
 */
 void update_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op)
+    // TODO: ajouter un parametre d'incrementation
 {
     if (*offset == 0) {
 	*offset = 6;
