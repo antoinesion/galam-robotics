@@ -66,4 +66,4 @@ Fonctions utilitaires
 */
 int compareArrays(uint8_t *a, uint8_t *b, int size);
 
-void update_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op);
+void incr_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op, int incr);

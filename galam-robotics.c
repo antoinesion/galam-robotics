@@ -221,7 +221,7 @@ void Send_init_r()
 	// on commence le message par son identifiant (voir algorithme)
 	msg_to_send[write_msg_i][write_byte_i] += id << write_offset;
 	// on met a jout les iterateurs d'ecriture
-	update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
+	incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
 
 	// iterateurs de lecture du message recu par ce fils
 	int son_msg_i = 0;
@@ -260,8 +260,8 @@ void Send_init_r()
 	    uint8_t value = (msg_storage[son_msg_i][son_byte_i]&and_op) >> son_offset;
 	    // pour chaque valeur qu'on lit, on l'ecrit dans le message a envoyer
 	    msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
-	    update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
-	    update_iterators(&son_msg_i, &son_byte_i, &son_offset, &and_op);
+	    incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
+	    incr_iterators(&son_msg_i, &son_byte_i, &son_offset, &and_op, 2);
 
 	    if (value == END_NODE) {depth--;} // on diminue la pronfondeur en fin de noeud
 	    else {depth++;} // sinon on augmente
@@ -367,15 +367,14 @@ void Send_Message_to_son()
 
     // segment routing : il faut transmettre le message au prochain id
     uint8_t next_id = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
-    update_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op);
+    incr_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op, 2);
 
     while (read_msg_i < msg_stored[father_id]) // TODO: demander a Samuel
     {
-	// TODO: peut etre aller de 1 bit en 1 bit ici, ça serait plus logique
 	uint8_t value = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
 	msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
-	update_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL);
-	update_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op);
+	incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 1);
+	incr_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
     }
 
     emptyStorage(father_id);
@@ -414,16 +413,22 @@ int compareArrays(uint8_t *a, uint8_t *b, int size)
 }
 
 /*
-Fonction pour mettre a jour les iterateurs durant la lecture/ecriture de message
+Fonction pour incrementer les iterateurs durant la lecture/ecriture de message
 */
-void update_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op)
-    // TODO: ajouter un parametre d'incrementation
+void incr_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op, int incr)
 {
     if (*offset == 0) {
-	*offset = 6;
+	*offset = 8 - incr;
 	if (and_op != NULL)
 	{
-	    *and_op = 0b11000000;
+	    if (incr == 1)
+	    {
+		*and_op = 0b10000000;
+	    }
+	    else if (incr == 2)
+	    {
+		*and_op = 0b11000000;
+	    }
 	}
 
 	if (*byte_i == BUFFSIZE - 1)
@@ -438,10 +443,10 @@ void update_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op)
     }
     else
     {
-	*offset -= 2;
+	*offset -= incr;
 	if (and_op != NULL)
 	{
-	    *and_op = *and_op >> 2;
+	    *and_op = *and_op >> incr;
 	}
     }
 }
