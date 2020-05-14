@@ -7,11 +7,8 @@ Les messages en provenance de l'interface 0 seront donc recus dans le tableau rx
 les messages à envoyer vers l'interface 0 seront stockés dans le tableau tx0. 
 */
 
-uint8_t tx0[BUFFSIZE] ; // TODO: est-ce utile ?
 uint8_t rx0[BUFFSIZE] ;
-uint8_t tx1[BUFFSIZE] ;
 uint8_t rx1[BUFFSIZE] ;
-uint8_t tx2[BUFFSIZE] ;
 uint8_t rx2[BUFFSIZE] ;
 
 uint8_t father_id = UNKNOWN_ID;
@@ -150,7 +147,7 @@ void Handle_Message(uint8_t *pData, uint8_t id)
     {
 	Handle_Message_to_son(pData, id);
     }
-    else if (msg_type == 4) // message to source
+    else if (msg_type == 3) // message to source
     {
 	Handle_Message_to_source(pData);
     }
@@ -289,7 +286,7 @@ Fonction pour transmettre un message a un fils
 void Handle_Message_to_son(uint8_t *pData, uint8_t id)
 {
     // on regarde combien de message on doit stocker
-    if (msg_to_store[id] == 1)
+    if (msg_to_store[id] == 0)
     {
 	msg_to_store[id] = (pData[0])&0b00111111;
     }
@@ -319,7 +316,7 @@ void Handle_Message_to_son(uint8_t *pData, uint8_t id)
 	}
 	else
 	{
-	    // le message est pour ce noeud
+	    // TODO Hangle_App
 	}
     }
 }
@@ -334,7 +331,7 @@ void Send_Message_to_son()
     // iterateurs d'ecriture
     int write_msg_i = 0;
     int write_byte_i = 1;
-    int write_offset = 6;
+    int write_offset = 7;
 
     // iterateurs de lecture
     int read_msg_i = 0;
@@ -369,7 +366,7 @@ void Send_Message_to_son()
     uint8_t next_id = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
     incr_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op, 2);
 
-    while (read_msg_i < msg_stored[father_id]) // TODO: demander a Samuel
+    while (read_msg_i < msg_stored[father_id]) // TODO: ameliorer ?
     {
 	uint8_t value = (msg_storage[read_msg_i][read_byte_i]&and_op) >> read_offset;
 	msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
@@ -394,7 +391,7 @@ Fonction pour transmettre un message a la source
 */
 void Handle_Message_to_source(uint8_t *pData)
 {
-    Transmit(father_id, pData, BUFFSIZE, TIME_OUT);
+    Transmit(father_id, pData, BUFFSIZE, TIME_OUT); // TODO: SEND MESSAGE TO SOURCE FUNCTION
 }
 
 /*

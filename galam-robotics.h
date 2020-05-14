@@ -57,6 +57,8 @@ void Send_init_r();
 
 void Handle_Message_to_son(uint8_t *pData, uint8_t id);
 
+void Handle_App(uint8_t *pData, uint16_t length);
+
 void Send_Message_to_son();
 
 void Handle_Message_to_source(uint8_t *pData);
