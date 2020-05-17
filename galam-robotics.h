@@ -2,14 +2,14 @@
 #include <stdio.h>
 #define BUFFSIZE 32
 #define NB_MAX_MSG 4
+#define INIT 0
+#define INIT_R 1
+#define MSG_TO_SON 2
+#define MSG_TO_SOURCE 3
 #define TIME_OUT 500
 #define UNKNOWN_ID 4
 #define END_NODE 3
 #define END_HEADER 3
-/*
-Ce fichier header décrit certaines fonctions utilisées dans le code. 
-N'hesitez pas à en rajouter !
-*/
 
 /*
 Fonction de réception de message. 
@@ -45,7 +45,7 @@ il faudra alors modifier les autres fonctions
 */
 void Store_Message(uint8_t *pData, uint8_t id);
 
-void emptyStorage(int id);
+void emptyStorage(uint8_t id); // TODO : changer le nom
 
 void Handle_Message(uint8_t *pData, uint8_t id);
 

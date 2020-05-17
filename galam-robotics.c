@@ -7,9 +7,9 @@ Les messages en provenance de l'interface 0 seront donc recus dans le tableau rx
 les messages à envoyer vers l'interface 0 seront stockés dans le tableau tx0. 
 */
 
-uint8_t rx0[BUFFSIZE] ;
-uint8_t rx1[BUFFSIZE] ;
-uint8_t rx2[BUFFSIZE] ;
+uint8_t rx0[BUFFSIZE];
+uint8_t rx1[BUFFSIZE];
+uint8_t rx2[BUFFSIZE];
 
 uint8_t father_id = UNKNOWN_ID;
 uint8_t son_ids[] = {UNKNOWN_ID, UNKNOWN_ID};
@@ -17,9 +17,9 @@ int son_nb = 0;
 
 uint8_t msg_stored[] = {0, 0, 0};
 uint8_t msg_to_store[] = {0, 0, 0};
-uint8_t msgx0 [NB_MAX_MSG][BUFFSIZE];
-uint8_t msgx1 [NB_MAX_MSG][BUFFSIZE];
-uint8_t msgx2 [NB_MAX_MSG][BUFFSIZE];
+uint8_t msgx0[NB_MAX_MSG][BUFFSIZE];
+uint8_t msgx1[NB_MAX_MSG][BUFFSIZE];
+uint8_t msgx2[NB_MAX_MSG][BUFFSIZE];
 
 /*
 Fonction de stockage de messages
@@ -51,7 +51,7 @@ void Store_Message(uint8_t *pData, uint8_t id)
     msg_stored[id]++;
 }
 
-void emptyStorage(int id)
+void emptyStorage(uint8_t id)
 {
     // on pointe vers le stockage correspondant a l'id
     uint8_t* msg_storage[NB_MAX_MSG];
@@ -135,19 +135,19 @@ uint8_t RxCallBack(uint8_t id)
 void Handle_Message(uint8_t *pData, uint8_t id)
 {
     uint8_t msg_type = ((pData[0])&0b11000000) >> 6;
-    if (msg_type == 0) // init
+    if (msg_type == INIT) // init
     {
 	Handle_Message_init(pData, id);
     }
-    else if (msg_type == 1) // init_r
+    else if (msg_type == INIT_R) // init_r
     {
 	Handle_Message_init_r(pData, id);
     }
-    else if (msg_type == 2) // message to son
+    else if (msg_type == MSG_TO_SON) // message to son
     {
 	Handle_Message_to_son(pData, id);
     }
-    else if (msg_type == 3) // message to source
+    else if (msg_type == MSG_TO_SOURCE) // message to source
     {
 	Handle_Message_to_source(pData);
     }
@@ -271,7 +271,7 @@ void Send_init_r()
     msg_to_send[write_msg_i][write_byte_i] += END_NODE << write_offset; 
 
     // on transmet les messages avec le bon header a chaque fois
-    uint8_t msg_type = 2;
+    uint8_t msg_type = INIT_R;
     uint8_t nb_msg = write_msg_i + 1;
     for (int i = 0; i <= write_msg_i; i++)
     {
@@ -316,7 +316,7 @@ void Handle_Message_to_son(uint8_t *pData, uint8_t id)
 	}
 	else
 	{
-	    // TODO Hangle_App
+	    // TODO Read_Message
 	}
     }
 }
@@ -337,7 +337,7 @@ void Send_Message_to_son()
     int read_msg_i = 0;
     int read_byte_i = 1;
     int read_offset = 6;
-    uint8_t and_op = 0b11000000;
+    uint8_t and_op = 0b10000000;
     // on recupere le message stocker en pointant vers le bon identifiant du pere
     uint8_t* msg_storage[NB_MAX_MSG];
     if (father_id == 0)
@@ -377,7 +377,7 @@ void Send_Message_to_son()
     emptyStorage(father_id);
 
     // on transmet les messages avec le bon header a chaque fois
-    uint8_t msg_type = 3;
+    uint8_t msg_type = MSG_TO_SON;
     uint8_t nb_msg = write_msg_i + 1;
     for (int i = 0; i <= write_msg_i; i++)
     {
@@ -391,7 +391,9 @@ Fonction pour transmettre un message a la source
 */
 void Handle_Message_to_source(uint8_t *pData)
 {
-    Transmit(father_id, pData, BUFFSIZE, TIME_OUT); // TODO: SEND MESSAGE TO SOURCE FUNCTION
+    Transmit(father_id, pData, BUFFSIZE, TIME_OUT);
+    // TODO: fonction Send_Message_to_Source(unint8_t *pData, uint16_t length) qui decoupe et
+    // envoie le message
 }
 
 /*
