@@ -4,7 +4,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <iostream>
-#include <bitset>
+#include <fstream>
 #define NB_INTERFACE 3
 #define BUFFSIZE 32
 #define NB_MAX_MSG 4
@@ -37,28 +37,35 @@ class Module
     Module* connections[3] = {NULL, NULL, NULL};
     uint8_t connections_other_side_id[3] = {UNKNOWN_ID, UNKNOWN_ID, UNKNOWN_ID};
     uint8_t son_ids_to_print[2] = {UNKNOWN_ID, UNKNOWN_ID};
-    int state = 0;
+    std::string state = "NI";
+    std::string last_message = "no msg";
     
   public:
-    int module_id;
+    int module_id = 0;
     Module ();
 
+    // fonctions d'un module
     void Store_Message(uint8_t *pData, uint8_t id);
     void Empty_Storage(uint8_t id);
     void Handle_Message(uint8_t *pData, uint8_t id);
     void Handle_Message_init(uint8_t *pData, uint8_t id);
     void Handle_Message_init_r(uint8_t *pData, uint8_t id);
     void Send_init_r();
-    void Handle_Message_to_son(uint8_t *pData, uint8_t id);
-    void Send_Message_to_son();
-    void Handle_Message_to_source(uint8_t *pData);
+    void Handle_Message_to_Son(uint8_t *pData, uint8_t id);
+    void Transfer_Message_to_Son();
+    void Read_Message(uint8_t *pData);
+    void Handle_Message_to_Source(uint8_t *pData);
+    void Send_Message_to_Source(uint8_t *pData, uint16_t length);
 
+    // fonctions ajoutees pour assurer les tests
     uint8_t get_random_id();
     void set_father(Module* father, uint8_t id_this_side, uint8_t id_father_side);
     void set_first_son(Module* son, uint8_t id_this_side, uint8_t id_son_side);
     void set_second_son(Module* son, uint8_t id_this_side, uint8_t id_son_side);
     void print(int depth = 0);
+    int naming(int id = 0);
     uint8_t Transmit(uint8_t id, uint8_t *pData);
     void Handle_All_Message();
     uint8_t Send_init();
+    void Send_Message(uint8_t entry_id, uint8_t *pData);
 };
