@@ -51,54 +51,53 @@ void incr_iterators (int *msg_i, int *byte_i, int *offset, uint8_t *and_op, int 
 
 Module::Module() {}
 
-void Module::Store_Message(uint8_t *pData, uint8_t id)
+void Module::Store_Message(uint8_t *pData, uint8_t itf)
 {
     // on copie les donnees sur le bon tableau de stockage
-    std::cout << "storage (" << module_id << ") " << unsigned(msg_stored[id]) + 1 << "/" << unsigned(msg_to_store[id]) << ":" << std::endl;
     for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
     {
-	storage[id][msg_stored[id]][byte_i] = pData[byte_i];
+	storage[itf][msg_stored[itf]][byte_i] = pData[byte_i];
 
-	std::bitset<8> byte (pData[byte_i]);
-	std::cout << byte << " ";
-	if (byte_i % 4 == 3)
-	{
-	  std::cout << std::endl;
-        } 
+	/* std::bitset<8> byte (pData[byte_i]);
+	 * std::cout << byte << " ";
+	 * if (byte_i % 4 == 3)
+	 * {
+	 *   std::cout << std::endl;
+         * }  */
     }
 
     // on actualise cette variable
-    msg_stored[id]++;
+    msg_stored[itf]++;
 }
 
-void Module::Empty_Storage(uint8_t id)
+void Module::Empty_Storage(uint8_t itf)
 {
     // on met des 0 partout
-    for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++) {
+    for (int msg_i = 0; msg_i < NB_MAX_SBMSG; msg_i++) {
 	for (int byte_i = 0; byte_i < BUFFSIZE - 1; byte_i++) {
-	    storage[id][msg_i][byte_i] = 0;
+	    storage[itf][msg_i][byte_i] = 0;
 	}
     }
 
     // on actualise cette variable
-    msg_stored[id] = 0;
-    msg_to_store[id] = 0;
+    msg_stored[itf] = 0;
+    msg_to_store[itf] = 0;
 }
 
-void Module::Handle_Message(uint8_t *pData, uint8_t id)
+void Module::Handle_Message(uint8_t *pData, uint8_t itf)
 {
     uint8_t msg_type = ((pData[0])&0b11000000) >> 6;
     if (msg_type == INIT) // init
     {
-	Handle_Message_init(pData, id);
+	Handle_Message_init(pData, itf);
     }
     else if (msg_type == INIT_R) // init_r
     {
-	Handle_Message_init_r(pData, id);
+	Handle_Message_init_r(pData, itf);
     }
     else if (msg_type == MSG_TO_SON) // message to son
     {
-	Handle_Message_to_Son(pData, id);
+	Handle_Message_to_Son(pData, itf);
     }
     else if (msg_type == MSG_TO_SOURCE) // message to source
     {
@@ -106,20 +105,20 @@ void Module::Handle_Message(uint8_t *pData, uint8_t id)
     }
 }
 
-void Module::Handle_Message_init(uint8_t *pData, uint8_t id)
+void Module::Handle_Message_init(uint8_t *pData, uint8_t itf)
 {
-    father_id = id;
+    father_itf = itf;
     if (((pData[0])&0b00111111) == 1) // si ce n'est pas un message fantôme
     { 
-	for (int trsmt_id = 0; trsmt_id < 3; trsmt_id++) // on transmet l'init aux fils
+	for (int trsmt_itf = 0; trsmt_itf < 3; trsmt_itf++) // on transmet l'init aux fils
 	{
-	    if (trsmt_id != father_id) // pas au père
+	    if (trsmt_itf != father_itf) // pas au père
 	    {
-		uint8_t t = Transmit(trsmt_id, pData);
+		uint8_t t = Transmit(trsmt_itf, pData);
 		if (t == 1) // si la transmission a réussi, on ajoute le fils
 		{
-		    son_ids[son_nb] = trsmt_id;
-		    msg_to_store[trsmt_id] = 1;
+		    son_itfs[son_nb] = trsmt_itf;
+		    msg_to_store[trsmt_itf] = 1;
 		    son_nb++;
 		}
 
@@ -134,16 +133,16 @@ void Module::Handle_Message_init(uint8_t *pData, uint8_t id)
     }
 }
 
-void Module::Handle_Message_init_r(uint8_t *pData, uint8_t id)
+void Module::Handle_Message_init_r(uint8_t *pData, uint8_t itf)
 {
     // on regarde combien de message on doit stocker
-    if (msg_to_store[id] == 1)
+    if (msg_to_store[itf] == 1)
     {
-	msg_to_store[id] = (pData[0])&0b00111111;
+	msg_to_store[itf] = (pData[0])&0b00111111;
     }
 
     // on stocke le message
-    Store_Message(pData, id);
+    Store_Message(pData, itf);
 
     if (compareArrays(msg_stored, msg_to_store, 3)) // si on a recu tous les messages de init_r
     {
@@ -154,8 +153,8 @@ void Module::Handle_Message_init_r(uint8_t *pData, uint8_t id)
 void Module::Send_init_r()
 {
     // tableau de stockage du message init_r a envoyer
-    uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE];
-    for (int msg_i = 0; msg_i < NB_MAX_MSG; msg_i++)
+    uint8_t msg_to_send[NB_MAX_SBMSG][BUFFSIZE];
+    for (int msg_i = 0; msg_i < NB_MAX_SBMSG; msg_i++)
     {
       for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
       {
@@ -172,9 +171,9 @@ void Module::Send_init_r()
     for (int son_i = 0; son_i < son_nb; son_i++)
     {
 	// on recupere son identifiant
-	uint8_t id = son_ids[son_i];
-	// on commence le message par son identifiant (voir algorithme)
-	msg_to_send[write_msg_i][write_byte_i] += id << write_offset;
+	uint8_t itf = son_itfs[son_i];
+	// on commence le message par son itfentifiant (voir algorithme)
+	msg_to_send[write_msg_i][write_byte_i] += itf << write_offset;
 	// on met a jout les iterateurs d'ecriture
 	incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
 
@@ -188,7 +187,7 @@ void Module::Send_init_r()
 	int depth = 1;
 	while (depth > 0)
 	{ 
-	    uint8_t value = (storage[id][son_msg_i][son_byte_i]&and_op) >> son_offset;
+	    uint8_t value = (storage[itf][son_msg_i][son_byte_i]&and_op) >> son_offset;
 	    // pour chaque valeur qu'on lit, on l'ecrit dans le message a envoyer
 	    msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
 	    incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
@@ -198,7 +197,7 @@ void Module::Send_init_r()
 	    else {depth++;} // sinon on augmente
 	}
 
-	Empty_Storage(id);
+	Empty_Storage(itf);
     }
 
     // derniere valeur pour le message a envoyer
@@ -210,41 +209,41 @@ void Module::Send_init_r()
     for (int msg_i = 0; msg_i <= write_msg_i; msg_i++)
     {
 	msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
-	Transmit(father_id, msg_to_send[msg_i]);
+	Transmit(father_itf, msg_to_send[msg_i]);
     }
 
     state = "IR";
 }
 
-void Module::Handle_Message_to_Son(uint8_t *pData, uint8_t id)
+void Module::Handle_Message_to_Son(uint8_t *pData, uint8_t itf)
 {
     // on regarde combien de message on doit stocker
-    if (msg_to_store[id] == 0)
+    if (msg_to_store[itf] == 0)
     {
-	msg_to_store[id] = (pData[0])&0b00111111;
+	msg_to_store[itf] = (pData[0])&0b00111111;
     }
 
     // on stocke le message
-    Store_Message(pData, id);
+    Store_Message(pData, itf);
 
-    if (msg_stored[id] == msg_to_store[id])
+    if (msg_stored[itf] == msg_to_store[itf])
     {
-	uint8_t next_id = (storage[father_id][0][1]&0b11000000) >> 6;
-	if (next_id != END_HEADER)
+	uint8_t next_itf = (storage[father_itf][0][1]&0b11000000) >> 6;
+	if (next_itf != END_HEADER)
 	{
 	    Transfer_Message_to_Son();
 	}
 	else
 	{
-	    uint8_t message[(BUFFSIZE - 1) * NB_MAX_MSG] = {0};
+	    uint8_t message[(BUFFSIZE - 1) * NB_MAX_SBMSG] = {0};
 	    int read_msg_i = 0;
 	    int read_byte_i = 1, write_byte_i = 0;
 	    int read_offset = 4, write_offset = 6;
 	    uint8_t and_op = 0b00110000;
 
-	    while (read_msg_i < msg_stored[id])
+	    while (read_msg_i < msg_stored[itf])
 	    {
-	      uint8_t value = (storage[id][read_msg_i][read_byte_i]&and_op) >> read_offset;
+	      uint8_t value = (storage[itf][read_msg_i][read_byte_i]&and_op) >> read_offset;
 	      message[write_byte_i] += value << write_offset;
 	      incr_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op, 2);
 	      if (write_offset == 0)
@@ -259,7 +258,7 @@ void Module::Handle_Message_to_Son(uint8_t *pData, uint8_t id)
 	    }
 
 	    Read_Message(message);
-	    Empty_Storage(father_id);
+	    Empty_Storage(father_itf);
 	}
     }
 }
@@ -267,7 +266,7 @@ void Module::Handle_Message_to_Son(uint8_t *pData, uint8_t id)
 void Module::Transfer_Message_to_Son()
 {
     // tableau de stockage du message a envoyer
-    uint8_t msg_to_send[NB_MAX_MSG][BUFFSIZE] = {0};
+    uint8_t msg_to_send[NB_MAX_SBMSG][BUFFSIZE] = {0};
     // iterateurs d'ecriture
     int write_msg_i = 0;
     int write_byte_i = 1;
@@ -279,19 +278,19 @@ void Module::Transfer_Message_to_Son()
     int read_offset = 6;
     uint8_t and_op = 0b11000000;
     
-    // segment routing : il faut transmettre le message au prochain id
-    uint8_t next_id = (storage[father_id][read_msg_i][read_byte_i]&and_op) >> read_offset;
+    // segment routing : il faut transmettre le message au prochain itf
+    uint8_t next_itf = (storage[father_itf][read_msg_i][read_byte_i]&and_op) >> read_offset;
     incr_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op, 2);
 
-    while (read_msg_i < msg_stored[father_id]) // TODO: ameliorer avec un header applicatif qui donne la longueur du message ?
+    while (read_msg_i < msg_stored[father_itf]) // TODO: ameliorer avec un header applicatif qui donne la longueur du message ?
     {
-	uint8_t value = (storage[father_id][read_msg_i][read_byte_i]&and_op) >> read_offset;
+	uint8_t value = (storage[father_itf][read_msg_i][read_byte_i]&and_op) >> read_offset;
 	msg_to_send[write_msg_i][write_byte_i] += value << write_offset;
 	incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
 	incr_iterators(&read_msg_i, &read_byte_i, &read_offset, &and_op, 2);
     }
 
-    Empty_Storage(father_id);
+    Empty_Storage(father_itf);
 
     // on transmet les messages avec le bon header a chaque fois
     uint8_t msg_type = MSG_TO_SON;
@@ -299,7 +298,7 @@ void Module::Transfer_Message_to_Son()
     for (int msg_i = 0; msg_i <= write_msg_i; msg_i++)
     {
 	msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
-	Transmit(next_id, msg_to_send[msg_i]);
+	Transmit(next_itf, msg_to_send[msg_i]);
     }
 }
 
@@ -318,20 +317,54 @@ void Module::Read_Message(uint8_t *pData)
      *   std::cout << std::endl;
      * } */
   }
+  if (last_message.find("id=") == 0)
+  {
+    id = std::stoi(last_message.substr(3));
+  }
+
+  std::string text = std::to_string(id) + ": bien recu";
+  const uint16_t text_len = text.size();
+  uint8_t message[text_len + 1];
+  message[0] = text_len;
+  for (int i = 1; i < text_len + 1; i++)
+  {
+    message[i] = (uint8_t) text[i - 1];
+  }
+  Send_Message_to_Source(message, text_len+1);
 }
 
 void Module::Handle_Message_to_Source(uint8_t *pData)
 {
-    Transmit(father_id, pData);
-    // TODO: fonction Send_Message_to_Source
+    Transmit(father_itf, pData);
+}
+
+void Module::Send_Message_to_Source(uint8_t *pData, uint16_t length)
+{
+  uint8_t message[NB_MAX_SBMSG][BUFFSIZE] = {0};
+  int write_msg_i;
+  int write_byte_i;
+
+  for (int read_byte_i = 0; read_byte_i < length; read_byte_i++)
+  {
+    write_msg_i = read_byte_i / (BUFFSIZE - 1);
+    write_byte_i = read_byte_i % (BUFFSIZE - 1) + write_msg_i + 1;
+    message[write_msg_i][write_byte_i] = pData[read_byte_i];
+  }
+
+  int nb_msg = write_msg_i + 1;
+  for (int msg_i = 0; msg_i <= write_msg_i; msg_i++)
+  {
+    message[msg_i][0] = (MSG_TO_SOURCE << 6) + nb_msg;
+    Transmit(father_itf, message[msg_i]);
+  }
 }
 
 
-uint8_t Module::Transmit(uint8_t id, uint8_t *pData)
+uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
 {
-  if (connections[id] == NULL)
+  if (connections[itf] == NULL)
   {
-    if (id == father_id)
+    if (itf == father_itf)
     {
       if ((pData[0]&0b11000000) >> 6 == INIT_R)
       {
@@ -353,19 +386,37 @@ uint8_t Module::Transmit(uint8_t id, uint8_t *pData)
 	std::cout << std::endl;
 	file.close();
       }
+      if ((pData[0]&0b11000000) >> 6 == MSG_TO_SOURCE)
+      {
+	uint8_t length = pData[1];
+	for (int byte_i = 2; byte_i < length + 2 ; byte_i++)
+	{
+	  std::cout << (char) pData[byte_i];
+	}
+	std::cout << std::endl;
+      }
     }
     return 0;
   }
   else
   {
-    Module* module_to_trsmt = connections[id];
+    Module* module_to_trsmt = connections[itf];
+    // std::cout << "transmit (" << unsigned(id) << "): " << unsigned(itf) << std::endl;
     for (int byte_i = 0 ; byte_i < BUFFSIZE ; byte_i++)
     {
-      module_to_trsmt->received[connections_other_side_id[id]][
-	module_to_trsmt->received_nb[connections_other_side_id[id]]][byte_i] = pData[byte_i];
+      module_to_trsmt->received[connections_other_side_itf[itf]][
+	module_to_trsmt->received_nb[connections_other_side_itf[itf]]][byte_i] = pData[byte_i];
+
+      /* std::bitset<8> byte (pData[byte_i]);
+       * std::cout << byte << " ";
+       * if (byte_i % 4 == 3)
+       * {
+       *   std::cout << std::endl;
+       * }   */
+
     }
     
-    module_to_trsmt->received_nb[connections_other_side_id[id]]++;
+    module_to_trsmt->received_nb[connections_other_side_itf[itf]]++;
     return 1;
   }
 }
@@ -373,96 +424,86 @@ uint8_t Module::Transmit(uint8_t id, uint8_t *pData)
 void Module::Handle_All_Message()
 {
   last_message = "no msg";
-  for (int id = 0 ; id < NB_INTERFACE ; id++)
+  for (int itf = 0 ; itf < NB_ITF ; itf++)
   {
-    for (int msg_i = 0 ; msg_i < received_nb[id] ; msg_i++)
+    for (int msg_i = 0 ; msg_i < received_nb[itf] ; msg_i++)
     {
-      Handle_Message(received[id][msg_i], id);
+      Handle_Message(received[itf][msg_i], itf);
     }
-    received_nb[id] = 0;
+    received_nb[itf] = 0;
   }
 }
 
-uint8_t Module::get_random_id()
+uint8_t Module::get_random_itf()
 {
-  uint8_t random_id = rand() % 3;
-  while (connections_other_side_id[random_id] != UNKNOWN_ID)
+  uint8_t random_itf = rand() % 3;
+  while (connections_other_side_itf[random_itf] != UNKNOWN_ITF)
   {
-    random_id = rand() % 3;
+    random_itf = rand() % 3;
   }
-  return random_id;
+  return random_itf;
 }
 
-void Module::set_father(Module* father, uint8_t id_this_side, uint8_t id_father_side)
+void Module::set_father(Module* father, uint8_t itf_this_side, uint8_t itf_father_side)
 {
-  connections[id_this_side] = father;
-  connections_other_side_id[id_this_side] = id_father_side;
+  connections[itf_this_side] = father;
+  connections_other_side_itf[itf_this_side] = itf_father_side;
 }
 
-void Module::set_first_son(Module* son, uint8_t id_this_side, uint8_t id_son_side)
+void Module::set_first_son(Module* son, uint8_t itf_this_side, uint8_t itf_son_side)
 {
-  connections[id_this_side] = son;
-  connections_other_side_id[id_this_side] = id_son_side;
-  son_ids_to_print[0] = id_this_side;
+  connections[itf_this_side] = son;
+  connections_other_side_itf[itf_this_side] = itf_son_side;
+  son_itfs_to_print[0] = itf_this_side;
 }
 
-void Module::set_second_son(Module* son, uint8_t id_this_side, uint8_t id_son_side)
+void Module::set_second_son(Module* son, uint8_t itf_this_side, uint8_t itf_son_side)
 {
-  connections[id_this_side] = son;
-  connections_other_side_id[id_this_side] = id_son_side;
-  son_ids_to_print[1] = id_this_side;
+  connections[itf_this_side] = son;
+  connections_other_side_itf[itf_this_side] = itf_son_side;
+  son_itfs_to_print[1] = itf_this_side;
 }
 
 void Module::print(int depth)
 {
   std::string space (9*depth, ' ');
   std::cout << space;
-  std::cout << unsigned(connections_other_side_id[father_id]) << "->" << unsigned(father_id) << " ";
-  std::cout << "(" << module_id << ") ";
+  std::cout << unsigned(connections_other_side_itf[father_itf]) << "->" << unsigned(father_itf) << " ";
+  std::cout << "(" << unsigned(id) << ") ";
   std::cout << state << " ";
   std::cout << received_nb[0] + received_nb[1] + received_nb[2] << "M ";
   std::cout << ": " << last_message;
   std::cout << std::endl;
-  if (son_ids_to_print[0] != UNKNOWN_ID)
+  if (son_itfs_to_print[0] != UNKNOWN_ITF)
   {
-    connections[son_ids_to_print[0]]->print(depth + 1);
+    connections[son_itfs_to_print[0]]->print(depth + 1);
   }
-    if (son_ids_to_print[1] != UNKNOWN_ID)
+    if (son_itfs_to_print[1] != UNKNOWN_ITF)
   {
-    connections[son_ids_to_print[1]]->print(depth + 1);
+    connections[son_itfs_to_print[1]]->print(depth + 1);
   } 
-}
-
-int Module::naming(int id)
-{
-  module_id = id;
-  id++;
-  for (int son_i = 0; son_i < son_nb; son_i++) {
-    id = connections[son_ids[son_i]]->naming(id);
-  }
-  return id;
 }
 
 uint8_t Module::Send_init()
 {
-  uint8_t open_id = this->get_random_id();
+  uint8_t open_itf = this->get_random_itf();
   uint8_t init_msg[BUFFSIZE] = {0};
   init_msg[0] = 0b00000001;
   
   for (int byte_i = 0 ; byte_i < BUFFSIZE ; byte_i++)
   {
-    received[open_id][received_nb[open_id]][byte_i] = init_msg[byte_i];
+    received[open_itf][received_nb[open_itf]][byte_i] = init_msg[byte_i];
   }
-  received_nb[open_id]++;
+  received_nb[open_itf]++;
   
-  return open_id;
+  return open_itf;
 }
 
-void Module::Send_Message(uint8_t entry_id, uint8_t *pData)
+void Module::Send_Message(uint8_t entry_itf, uint8_t *pData)
 {
   for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
   {
-    received[entry_id][received_nb[entry_id]][byte_i] = pData[byte_i];
+    received[entry_itf][received_nb[entry_itf]][byte_i] = pData[byte_i];
   }
-  received_nb[entry_id]++;
+  received_nb[entry_itf]++;
 }

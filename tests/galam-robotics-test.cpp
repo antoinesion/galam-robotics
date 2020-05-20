@@ -1,12 +1,15 @@
 #include "galam-robotics-module.hpp"
 #include <fstream>
 #include <iomanip>
+#include <string>
 #include <time.h>
 #include <vector>
 
-const int NB_MODULES = 10;
-std::vector<uint8_t> paths[NB_MODULES];
-uint8_t entry_id = UNKNOWN_ID;
+const int NB_MODULES = 20;
+std::vector<uint8_t> segment_routing[NB_MODULES];
+uint8_t entry_itf = UNKNOWN_ITF;
+bool id_process_started = false;
+uint8_t id_process_id = 0;
 
 /* fonction pour generer un arbre de maniere aleatoire */
 void Generer_Arbre(std::vector<Module*> modules)
@@ -20,10 +23,10 @@ void Generer_Arbre(std::vector<Module*> modules)
       std::vector<Module*> sons (modules.begin() + 1, modules.end());
       Generer_Arbre(sons);
       
-      uint8_t first_id_father_side = father->get_random_id();
-      uint8_t first_id_son_side = sons[0]->get_random_id();
-      father->set_first_son(sons[0], first_id_father_side, first_id_son_side);
-      sons[0]->set_father(father, first_id_son_side, first_id_father_side);
+      uint8_t first_itf_father_side = father->get_random_itf();
+      uint8_t first_itf_son_side = sons[0]->get_random_itf();
+      father->set_first_son(sons[0], first_itf_father_side, first_itf_son_side);
+      sons[0]->set_father(father, first_itf_son_side, first_itf_father_side);
     }
     else
     {
@@ -36,40 +39,37 @@ void Generer_Arbre(std::vector<Module*> modules)
 
       if (first_sons.size() > 0)
       {
-	uint8_t first_id_father_side = father->get_random_id();
-	uint8_t first_id_son_side = first_sons[0]->get_random_id();
-	father->set_first_son(first_sons[0], first_id_father_side, first_id_son_side);
-	first_sons[0]->set_father(father, first_id_son_side, first_id_father_side);
+	uint8_t first_itf_father_side = father->get_random_itf();
+	uint8_t first_itf_son_side = first_sons[0]->get_random_itf();
+	father->set_first_son(first_sons[0], first_itf_father_side, first_itf_son_side);
+	first_sons[0]->set_father(father, first_itf_son_side, first_itf_father_side);
       }
 
       if (second_sons.size() > 0)
       {
-	uint8_t second_id_father_side = father->get_random_id();
-	uint8_t second_id_son_side = second_sons[0]->get_random_id();
-	father->set_second_son(second_sons[0], second_id_father_side, second_id_son_side);
-	second_sons[0]->set_father(father, second_id_son_side, second_id_father_side);
+	uint8_t second_itf_father_side = father->get_random_itf();
+	uint8_t second_itf_son_side = second_sons[0]->get_random_itf();
+	father->set_second_son(second_sons[0], second_itf_father_side, second_itf_son_side);
+	second_sons[0]->set_father(father, second_itf_son_side, second_itf_father_side);
       }
     }
   }
 }
 
 /* fonction pour envoyer un message a un module */
-void Send_Message(std::string text, int module_id, Module* source)
+void Send_Message(std::string text, uint8_t id, Module* source)
 {
   uint8_t length = text.length();
-  uint8_t message[NB_MAX_MSG][BUFFSIZE] = {0};
+  uint8_t message[NB_MAX_SBMSG][BUFFSIZE] = {0};
   int write_msg_i = 0;
   int write_byte_i = 1;
   int write_offset = 6;
   // segment routing
-  std::cout << "segement routing: ";
-  for (uint8_t id : paths[module_id])
+  for (uint8_t itf : segment_routing[id])
   {
-    std::cout << unsigned(id);
-    message[write_msg_i][write_byte_i] += id << write_offset;
+    message[write_msg_i][write_byte_i] += itf << write_offset;
     incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
   }
-  std::cout << unsigned(END_HEADER) << std::endl;
   message[write_msg_i][write_byte_i] += END_HEADER << write_offset;
   incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
 
@@ -108,7 +108,7 @@ void Send_Message(std::string text, int module_id, Module* source)
  *       }
  * 
  *     } */
-    source->Send_Message(entry_id, message[msg_i]);
+    source->Send_Message(entry_itf, message[msg_i]);
   }
 
 }
@@ -118,7 +118,7 @@ void Read_init_r(std::string init_r)
 {
   std::vector<uint8_t> stack;
   int i = 0;
-  int module_id = 1;
+  int module_itf = 1;
   int8_t value = ((int8_t) init_r[i]) - 48;
   while (stack.size() > 0 || value != END_NODE)
   {
@@ -129,11 +129,21 @@ void Read_init_r(std::string init_r)
     else
     {
       stack.push_back(value);
-      paths[module_id] = stack;
-      module_id++;
+      segment_routing[module_itf] = stack;
+      module_itf++;
     }
     i++;
     value = ((int8_t) init_r[i]) - 48;
+  }
+}
+
+void Identification_Process(Module* source)
+{
+  if (id_process_started && id_process_id < NB_MODULES)
+  {
+    std::string text = "id=" + std::to_string(id_process_id);
+    Send_Message(text, id_process_id, source);
+    id_process_id++;
   }
 }
 
@@ -173,19 +183,18 @@ int main()
     }
     else if (aswr == "send init")
     {
-      entry_id = modules[0].Send_init();
+      entry_itf = modules[0].Send_init();
       std::cout << "init sent!" << std::endl;
     }
     else if (aswr == "read init_r")
     {
-      modules[0].naming();
       std::ifstream file;
       file.open("init_r.txt");
       std::string init_r;
       file >> init_r;
       if (init_r == "")
       {
-	if (entry_id == UNKNOWN_ID)
+	if (entry_itf == UNKNOWN_ITF)
 	{
 	  std::cout << "init hasn't been sent" << std::endl;
 	}
@@ -197,19 +206,22 @@ int main()
       else
       {
 	Read_init_r(init_r);
-	std::cout << "init_r sucessfully read, you can now send messages!" << std::endl;
+	std::cout << "init_r sucessfully read, identification process initialized, you will soon be able to send message!" << std::endl;
       }
       file.close();
+      id_process_started = true;
+      Identification_Process(modules);
     }
     else if (aswr.find("send") == 0)
     {
       aswr = aswr.substr(aswr.find(" ")+1);
-      int module_id = std::stoi(aswr.substr(0, aswr.find(" ")));
+      int module_itf = std::stoi(aswr.substr(0, aswr.find(" ")));
       std::string text  = aswr.substr(aswr.find(" ")+1);
-      Send_Message(text, module_id, modules);
+      Send_Message(text, module_itf, modules);
     }
     else
     {
+      Identification_Process(modules);
       for (int i = 0; i < NB_MODULES ; i++)
       {
 	modules[i].Handle_All_Message();
