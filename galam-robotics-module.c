@@ -6,12 +6,12 @@ uint8_t rx0[BUFFSIZE]; // tableaux pour réceptionner les messages
 uint8_t rx1[BUFFSIZE];
 uint8_t rx2[BUFFSIZE];
 
-uint8_t father_itf = UNKNOWN_ITF; // interface du pere
+uint8_t father_itf = UNKNOWN_ITF; // interface du père
 uint8_t son_itfs[2] = {UNKNOWN_ITF, UNKNOWN_ITF}; // interfaces des fils
 int son_nb = 0; // nombre de fils
 
-uint8_t msg_stored[3] = {0, 0, 0}; // nombre de sous-messages stockes par interface
-uint8_t msg_to_store[3] = {0, 0, 0}; // nombre de sous-message a stocker par interface
+uint8_t msg_stored[3] = {0, 0, 0}; // nombre de sous-messages stockés par interface
+uint8_t msg_to_store[3] = {0, 0, 0}; // nombre de sous-message à stocker par interface
 uint8_t storage[NB_ITF][NB_MAX_SBMSG][BUFFSIZE] = {0}; // tableau de stockage des sous-messages
 
 
@@ -27,9 +27,17 @@ void init()
 int main() {
   while (1 == 1)
   {
-
+    // TODO : à compléter
   }
 }
+
+
+uint8_t Receive_IT(uint8_t itf, uint8_t *pData, uint8_t length)
+{
+  // TODO : à compléter
+  return 0;
+}
+
 
 uint8_t RxCallBack(uint8_t itf)
 {
@@ -50,6 +58,13 @@ uint8_t RxCallBack(uint8_t itf)
     Handle_Message(itf, rx2);
     Receive_IT(0, rx2, BUFFSIZE);
   }
+  return 0;
+}
+
+
+uint8_t Transmit(uint8_t itf, uint8_t *pData, uint8_t length, uint16_t Timeout)
+{
+  // TODO : à compléter
   return 0;
 }
 
@@ -398,6 +413,15 @@ void Transfer_Message_to_Module()
 }
 
 
+void Read_Message(uint8_t *pData)
+{
+  // TODO : à compléter
+  // Il faudrait que le premier message reçu soit une initialisation de l'identifiant
+  // du module
+}
+
+
+
 void Handle_Message_to_Source(uint8_t *pData)
 {
   // on doit simplement transmettre le message au père pour qu'il arrive jusqu'à la source
@@ -436,3 +460,54 @@ void Send_Message_to_Source(uint8_t *pData, uint8_t length)
     Transmit(father_itf, message[msg_i], BUFFSIZE, TIME_OUT);
   }
 }
+
+int compareArrays(uint8_t *a, uint8_t *b, int size)
+{
+  for (int i = 0; i < size; i++)
+  {
+    if (a[i] != b[i])
+    {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+
+void incr_indexes(int *msg_i, int *byte_i, int *offset, uint8_t *and_op, int incr)
+{
+  if (*offset == 0)
+  {
+    *offset = 8 - incr;
+    if (and_op != NULL)
+    {
+      if (incr == 1)
+      {
+	*and_op = 0b10000000;
+      }
+      else if (incr == 2)
+      {
+	*and_op = 0b11000000;
+      }
+    }
+
+    if (*byte_i == BUFFSIZE - 1)
+    {
+      *msg_i += 1;
+      *byte_i = 1;
+    }
+    else
+    {
+      *byte_i += 1;
+    }
+  }
+  else
+  {
+    *offset -= incr;
+    if (and_op != NULL)
+    {
+      *and_op = *and_op >> incr;
+    }
+  }
+}
+
