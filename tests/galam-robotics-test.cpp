@@ -22,7 +22,7 @@ void Generer_Arbre(std::vector<Module*> modules)
       Module* father = modules[0];
       std::vector<Module*> sons (modules.begin() + 1, modules.end());
       Generer_Arbre(sons);
-      
+
       uint8_t first_itf_father_side = father->get_random_itf();
       uint8_t first_itf_son_side = sons[0]->get_random_itf();
       father->set_first_son(sons[0], first_itf_father_side, first_itf_son_side);
@@ -68,17 +68,17 @@ void Send_Message(std::string text, uint8_t id, Module* source)
   for (uint8_t itf : segment_routing[id])
   {
     message[write_msg_i][write_byte_i] += itf << write_offset;
-    incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
+    incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
   }
-  message[write_msg_i][write_byte_i] += END_HEADER << write_offset;
-  incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
+  message[write_msg_i][write_byte_i] += END_SEGMENT_ROUTING << write_offset;
+  incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
 
   // message length
   uint8_t and_op = 0b11000000;
   for (int read_offset = 6; read_offset >= 0; read_offset -= 2)
   {
     message[write_msg_i][write_byte_i] += ((length&and_op) >> read_offset) << write_offset;
-    incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
+    incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
     and_op = and_op >> 2;
   }
   // message
@@ -88,7 +88,7 @@ void Send_Message(std::string text, uint8_t id, Module* source)
     for (int read_offset = 6; read_offset >= 0; read_offset -= 2)
     {
       message[write_msg_i][write_byte_i] += ((((uint8_t) text[i])&and_op) >> read_offset) << write_offset;
-      incr_iterators(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
+      incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 2);
       and_op = and_op >> 2;
     }
   }
@@ -97,17 +97,17 @@ void Send_Message(std::string text, uint8_t id, Module* source)
   uint8_t nb_msg = write_msg_i + 1;
   for (int msg_i = 0; msg_i <= write_msg_i ; msg_i++)
   {
-    message[msg_i][0] = (MSG_TO_SON << 6) + nb_msg;
-/*     for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
- *     {
- *       std::bitset<8> byte (message[msg_i][byte_i]);
- *       std::cout << byte << " ";
- *       if (byte_i % 4 == 3)
- *       {
- *         std::cout << std::endl;
- *       }
- * 
- *     } */
+    message[msg_i][0] = (MSG_TO_MODULE << 6) + nb_msg;
+    /*     for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
+     *     {
+     *       std::bitset<8> byte (message[msg_i][byte_i]);
+     *       std::cout << byte << " ";
+     *       if (byte_i % 4 == 3)
+     *       {
+     *         std::cout << std::endl;
+     *       }
+     *
+     *     } */
     source->Send_Message(entry_itf, message[msg_i]);
   }
 
@@ -166,7 +166,7 @@ int main()
   }
   // generation de l'arbre
   Generer_Arbre(modules_ptr);
-  
+
   bool loop = true;
   while (loop)
   {
@@ -176,7 +176,7 @@ int main()
     std::cout << std::endl;
     std::string aswr;
     std::getline(std::cin, aswr);
-    
+
     if (aswr == "stop")
     {
       loop = false;
