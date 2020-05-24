@@ -408,7 +408,31 @@ void Transfer_Message_to_Module()
     // on ajoute le bon header
     msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
     // on envoie le message
-    Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
+    uint8_t t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
+
+    if (t == 0)
+      // si la transmission a échoué
+    {
+      // on signale la source ce problème
+      
+      // contenu du message d'erreur
+      char msg_content[] = "error"; // TODO : à modifier ?
+      // longueur du message
+      const uint8_t length = strlen(msg_content);
+      
+      // le message d'erreur
+      uint8_t error_msg[length + 1];
+      // le premier octet indique la longeur du message
+      error_msg[0] = length;
+      // puis on remplit avec le contenu du message
+      for (int i = 1; i < length + 1; i++)
+      {
+	error_msg[i] = (uint8_t) msg_content[i - 1];
+      }
+      Send_Message_to_Source(error_msg);
+      break;
+    }
+
   }
 }
 
@@ -429,10 +453,12 @@ void Handle_Message_to_Source(uint8_t *pData)
 }
 
 
-void Send_Message_to_Source(uint8_t *pData, uint8_t length)
+void Send_Message_to_Source(uint8_t *pData)
 {
   // tableau de stockage du message à envoyer
   uint8_t message[NB_MAX_SBMSG][BUFFSIZE] = {0};
+  // la longueur du message est toujours inscrite sur le premier octet du message applicatif
+  uint8_t length = pData[0] + 1;
 
   // indices d'écriture
   int write_msg_i;
@@ -443,7 +469,7 @@ void Send_Message_to_Source(uint8_t *pData, uint8_t length)
   {
     // on determine les bons indices d'écriture
     write_msg_i = read_byte_i / (BUFFSIZE - 1);
-    write_byte_i = read_byte_i % (BUFFSIZE - 1) + write_msg_i + 1;
+    write_byte_i = read_byte_i % (BUFFSIZE - 1) + 1;
 
     // on recopie les données
     message[write_msg_i][write_byte_i] = pData[read_byte_i];

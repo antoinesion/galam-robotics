@@ -215,9 +215,23 @@ int main()
     else if (aswr.find("send") == 0)
     {
       aswr = aswr.substr(aswr.find(" ")+1);
-      int module_itf = std::stoi(aswr.substr(0, aswr.find(" ")));
+      int module_id = std::stoi(aswr.substr(0, aswr.find(" ")));
       std::string text  = aswr.substr(aswr.find(" ")+1);
-      Send_Message(text, module_itf, modules);
+      Send_Message(text, module_id, modules);
+    }
+    else if (aswr.find("deco") == 0)
+    {
+      aswr = aswr.substr(aswr.find(" ")+1);
+      int module_id = std::stoi(aswr.substr(0, aswr.find(" ")));
+      aswr = aswr.substr(aswr.find(" ")+1);
+      uint8_t itf = std::stoi(aswr);
+      for (int i = 0 ; i < NB_MODULES; i++)
+      {
+	if (modules[i].id == module_id)
+	{
+	  modules[i].deco_itf(itf);
+	}
+      }
     }
     else
     {

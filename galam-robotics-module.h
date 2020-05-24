@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #define UNKNOWN_ID 0
 #define NB_ITF 3
@@ -18,7 +19,7 @@
  * Le protocole de communication est codé de façon à pouvoir transmettre des messages répartis en
  * un maximum de NB_MAX_SB_MSG sous-messages, tous de taille BUFFSIZE octets. De plus, lors de la
  * transmission d'un message à un module, le premier octet du premier sous-message (le deuxième en
- * comptant l'octet réservé à l'header) doit toujours indiquer la taille de message applicaatif en octet
+ * comptant l'octet réservé à l'header) doit toujours indiquer la taille du message applicaatif en octet
  * sans prendre en compte ce même octet.
  * Ci-dessous sont presentés les différentes fonctions utiles au protocole de communication. */
 
@@ -99,8 +100,9 @@ void Read_Message(uint8_t *pData);
 void Handle_Message_to_Source(uint8_t *pData);
 
 /* --- Envoi d'un message à la source ---
- * Cette fonction peut être appelée lorsque l'on souhaite envoyer un message à la source. */
-void Send_Message_to_Source(uint8_t *pData, uint8_t length);
+ * Cette fonction peut être appelée lorsque l'on souhaite envoyer un message à la source.
+ * IMPORTANT : le premier octet de pData donne la longueur du message qui le suit en octet. */
+void Send_Message_to_Source(uint8_t *pData);
 
 /* --- Comparaison de 2 tableaux ---
  * Renvoie 1 si les 2 tableaux sont identiques, 0 sinon. */

@@ -46,7 +46,9 @@ class Module
     uint8_t connections_other_side_itf[3] = {UNKNOWN_ITF, UNKNOWN_ITF, UNKNOWN_ITF};
     uint8_t son_itfs_to_print[2] = {UNKNOWN_ITF, UNKNOWN_ITF};
     std::string state = "NI";
-    std::string last_message = "no msg";
+    std::string last_message = "";
+    int last_message_i = 0;
+    uint8_t last_message_length;
     
   public:
     uint8_t id = UNKNOWN_ID; // identifiant du module
@@ -110,14 +112,16 @@ class Module
     void Handle_Message_to_Source(uint8_t *pData);
 
     /* --- Envoi d'un message à la source ---
-     * Cette fonction peut être appelée lorsque l'on souhaite envoyer un message à la source. */
-    void Send_Message_to_Source(uint8_t *pData, uint8_t length);
+     * Cette fonction peut être appelée lorsque l'on souhaite envoyer un message à la source.
+     * IMPORTANT : le premier octet de pData donne la longueur du message qui le suit en octet. */
+    void Send_Message_to_Source(uint8_t *pData);
 
     // fonctions ajoutees pour assurer les tests
     uint8_t get_random_itf();
     void set_father(Module* father, uint8_t itf_this_side, uint8_t itf_father_side);
     void set_first_son(Module* son, uint8_t itf_this_side, uint8_t itf_son_side);
     void set_second_son(Module* son, uint8_t itf_this_side, uint8_t itf_son_side);
+    void deco_itf(uint8_t itf);
     void print(int depth = 0);
     uint8_t Transmit(uint8_t itf, uint8_t *pData);
     void Handle_All_Message();

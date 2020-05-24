@@ -388,7 +388,30 @@ void Module::Transfer_Message_to_Module()
     // on ajoute le bon header
     msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
     // on envoie le message
-    Transmit(next_itf, msg_to_send[msg_i]);
+    uint8_t t = Transmit(next_itf, msg_to_send[msg_i]);
+    
+    if (t == 0)
+      // si la transmission a échoué
+    {
+      // on signale la source ce problème
+      
+      // contenu du message d'erreur
+      std::string content = "error: connection lost with itf " + std::to_string(unsigned(next_itf)) + " on module id " + std::to_string(unsigned(id)); // TODO: à mettre en char *
+      // longueur du message
+      const uint8_t length = content.size();
+      
+      // le message d'erreur
+      uint8_t error_msg[length + 1];
+      // le premier octet indique la longeur du message
+      error_msg[0] = length;
+      // puis on remplit avec le contenu du message
+      for (int i = 1; i < length + 1; i++)
+      {
+	error_msg[i] = (uint8_t) content[i - 1];
+      }
+      Send_Message_to_Source(error_msg);
+      break;
+    }
   }
 }
 
@@ -413,7 +436,7 @@ void Module::Read_Message(uint8_t *pData)
   {
     message[i] = (uint8_t)text[i - 1];
   }
-  Send_Message_to_Source(message, text_len + 1);
+  Send_Message_to_Source(message);
 }
 
 void Module::Handle_Message_to_Source(uint8_t *pData)
@@ -422,10 +445,12 @@ void Module::Handle_Message_to_Source(uint8_t *pData)
   Transmit(father_itf, pData);
 }
 
-void Module::Send_Message_to_Source(uint8_t *pData, uint8_t length)
+void Module::Send_Message_to_Source(uint8_t *pData)
 {
   // tableau de stockage du message à envoyer
   uint8_t message[NB_MAX_SBMSG][BUFFSIZE] = {0};
+  // la longueur du message est toujours inscrite sur le premier octet du message applicatif
+  uint8_t length = pData[0] + 1;
 
   // indices d'écriture
   int write_msg_i;
@@ -436,7 +461,7 @@ void Module::Send_Message_to_Source(uint8_t *pData, uint8_t length)
   {
     // on determine les bons indices d'écriture
     write_msg_i = read_byte_i / (BUFFSIZE - 1);
-    write_byte_i = read_byte_i % (BUFFSIZE - 1) + write_msg_i + 1;
+    write_byte_i = read_byte_i % (BUFFSIZE - 1) + 1;
 
     // on recopie les données
     message[write_msg_i][write_byte_i] = pData[read_byte_i];
@@ -482,12 +507,42 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
       }
       if ((pData[0] & 0b11000000) >> 6 == MSG_TO_SOURCE)
       {
-	uint8_t length = pData[1];
-	for (int byte_i = 2; byte_i < length + 2; byte_i++)
+	if (last_message_i == 0)
 	{
-	  std::cout << (char)pData[byte_i];
+	  last_message_length = pData[1];
 	}
-	std::cout << std::endl;
+	last_message_i++;
+	
+	if (last_message_i == (pData[0] & 0b00111111))
+	{
+	  if (last_message_i == 1)
+	  {
+	    for (int byte_i = 2; byte_i < last_message_length + 2; byte_i++)
+	    {
+	      std::cout << (char) pData[byte_i];
+	    }
+	  }
+	  else {
+	    int this_message_length = last_message_length - ((last_message_i - 1) * (BUFFSIZE - 1) - 1);
+	    for (int byte_i = 1; byte_i < this_message_length + 1; byte_i++)
+	    {
+	      std::cout << (char) pData[byte_i];
+	    }
+	  }
+	  std::cout << std::endl;
+	  last_message_i = 0;
+	}
+	else
+	{
+	  if (last_message_i > 1)
+	  {
+	    std::cout << (char) pData[1];
+	  }
+	  for (int byte_i = 2; byte_i < BUFFSIZE; byte_i++)
+	  {
+	    std::cout << (char) pData[byte_i];
+	  }
+	}
       }
     }
     return 0;
@@ -505,7 +560,7 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
        * if (byte_i % 4 == 3)
        * {
        *   std::cout << std::endl;
-       * }    */
+       * }     */
     }
 
     module_to_trsmt->received_nb[connections_other_side_itf[itf]]++;
@@ -515,7 +570,7 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
 
 void Module::Handle_All_Message()
 {
-  last_message = "no msg";
+  last_message = "";
   for (int itf = 0; itf < NB_ITF; itf++)
   {
     for (int msg_i = 0; msg_i < received_nb[itf]; msg_i++)
@@ -554,6 +609,18 @@ void Module::set_second_son(Module *son, uint8_t itf_this_side, uint8_t itf_son_
   connections[itf_this_side] = son;
   connections_other_side_itf[itf_this_side] = itf_son_side;
   son_itfs_to_print[1] = itf_this_side;
+}
+
+void Module::deco_itf(uint8_t itf)
+{
+  std::cout << "itf " << unsigned(itf) << " disconnected on module id " << unsigned(id) << std::endl;
+  connections[itf] = NULL;
+  connections_other_side_itf[itf] = UNKNOWN_ITF;
+  if (son_itfs_to_print[0] == itf)
+  {
+    son_itfs_to_print[0] = son_itfs_to_print[1];
+  }
+  son_itfs_to_print[1] = UNKNOWN_ITF;
 }
 
 void Module::print(int depth)
