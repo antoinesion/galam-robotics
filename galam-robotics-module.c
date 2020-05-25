@@ -44,19 +44,19 @@ uint8_t RxCallBack(uint8_t itf)
   if(itf == 0)
   {
     Handle_Message(itf, rx0);
-    Receive_IT(0, rx0, BUFFSIZE);
+    Receive_IT(itf, rx0, BUFFSIZE);
   }
 
   if(itf == 1)
   {
     Handle_Message(itf, rx1);
-    Receive_IT(0, rx1, BUFFSIZE);
+    Receive_IT(itf, rx1, BUFFSIZE);
   }
 
   if(itf == 2)
   {
     Handle_Message(itf, rx2);
-    Receive_IT(0, rx2, BUFFSIZE);
+    Receive_IT(itf, rx2, BUFFSIZE);
   }
   return 0;
 }
@@ -413,7 +413,7 @@ void Transfer_Message_to_Module()
     if (t == 0)
       // si la transmission a échoué
     {
-      // on signale la source ce problème
+      // on signale ce problème à la source
       
       // contenu du message d'erreur
       char msg_content[] = "error"; // TODO : à modifier ?

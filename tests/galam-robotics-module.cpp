@@ -393,7 +393,7 @@ void Module::Transfer_Message_to_Module()
     if (t == 0)
       // si la transmission a échoué
     {
-      // on signale la source ce problème
+      // on signale ce problème à la source
       
       // contenu du message d'erreur
       std::string content = "error: connection lost with itf " + std::to_string(unsigned(next_itf)) + " on module id " + std::to_string(unsigned(id)); // TODO: à mettre en char *
