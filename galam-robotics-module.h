@@ -1,19 +1,19 @@
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
-#define UNKNOWN_ID 0
-#define NB_ITF 3
-#define UNKNOWN_ITF 4
-#define BUFFSIZE 32
-#define NB_MAX_SBMSG 4
-#define INIT 0
-#define INIT_R 1
-#define MSG_TO_MODULE 2
-#define MSG_TO_SOURCE 3
-#define TIME_OUT 500
-#define END_NODE 3
-#define END_SEGMENT_ROUTING 3
+#define NB_ITF 3 // nombre d'interfaces sur un module
+#define UNKNOWN_ITF 4 // code pour une interface inconnue
+#define BUFFSIZE 32 // taille en octet des transmissions
+#define NB_MAX_SBMSG 4 // nombre maximal de sous-messages
+#define INIT 0 // code pour un message de type init
+#define INIT_R 1 // code pour un message de type init_r
+#define MSG_TO_MODULE 2 // code pour un message destiné à un module
+#define MSG_TO_SOURCE 3 // code pour un message destiné à la source
+#define MSG_TO_MULT_MODULES 4 // code pour un message destiné à plusieurs modules
+#define MSG_TO_ALL 5 // code pour un message destiné à tous les modules
+#define TIME_OUT 500 // temps maximal d'attente pour la transmission
+#define END_NODE 3 // code pour signaler une fin de noeud dans l'init_r
+#define END_SEGMENT_ROUTING 3 // code pour signaler la fin du segment routing dans un message
 
 /* --- INFORMATIONS IMPORTANTES ---
  * Le protocole de communication est codé de façon à pouvoir transmettre des messages répartis en
@@ -84,18 +84,18 @@ void Send_init_r();
 void Handle_Message_to_Module(uint8_t *pData);
 
 /* --- Transfert d'un message à un autre module ---
- * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné a un autre
+ * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à un autre
  * module (un module fils). Elle a pour but de réécrire le message à transmettre et l'envoyer au bon
  * fils grâce au principe du segment routing. */
 void Transfer_Message_to_Module();
 
 /* --- Lecture d'un message ---
- * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné a ce module.
+ * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à ce module.
  * Elle a pour but de lire le message et d'exécuter certaines tâches en fonction de son contenu. */
 void Read_Message(uint8_t *pData);
 
 /* --- Gestion d'un message pour la source ---
- * Cette fonction est appelée lors de la réception d'un message destiné a la source. Elle a pour
+ * Cette fonction est appelée lors de la réception d'un message destiné à la source. Elle a pour
  * but transférer le message au père du module. */
 void Handle_Message_to_Source(uint8_t *pData);
 
@@ -103,6 +103,29 @@ void Handle_Message_to_Source(uint8_t *pData);
  * Cette fonction peut être appelée lorsque l'on souhaite envoyer un message à la source.
  * IMPORTANT : le premier octet de pData donne la longueur du message qui le suit en octet. */
 void Send_Message_to_Source(uint8_t *pData);
+
+/* --- Gestion d'un message pour plusieurs modules ---
+ * Cette fonction est appelee lors de la réception d'un message destiné à plusieurs modules. Elle a
+ * pour but d'appeler la fonction Read_Message si le message est destiné à ce module et de
+ * transférer le message après de la réception complète de ce dernier. */
+void Handle_Message_to_Multiple_Modules(uint8_t *pData);
+
+/* --- Transfert d'un message pour plusieurs modules --- 
+ * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à plusieurs
+ * modules. Elle a pour but de réécrire le message à transmettre et l'envoyer aux bon fils grâce au
+ * principe du segment routing. */
+void Transfer_Message_to_Multiple_Modules();
+
+/* --- Gestion d'un message pour tous les modules ---
+ * Cette fonction est appelée lors de la réception d'un message destiné à tous les modules. Elle a
+ * pour but d'appeler la fonction Read_Message et la fonction Transfer_Message_to_all après la
+ * réception complète du message. */
+void Handle_Message_to_All(uint8_t *pData);
+
+/* --- Transfer d'un message pour tous les modules ---
+ * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à tous les modules.
+ * Elle a pour but de transferer tel quel le message aux fils du module. */
+void Transfer_Message_to_All();
 
 /* --- Comparaison de 2 tableaux ---
  * Renvoie 1 si les 2 tableaux sont identiques, 0 sinon. */

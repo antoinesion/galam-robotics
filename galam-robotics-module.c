@@ -102,9 +102,9 @@ void Empty_Storage(uint8_t itf)
 
 void Handle_Message(uint8_t itf, uint8_t *pData)
 {
-  // le type du message est écrit sur les deux premiers bits du header
+  // le type du message est écrit sur les trois premiers bits du header
   // on recupère donc ce numéro codant ce type
-  uint8_t msg_type = ((pData[0]) & 0b11000000) >> 6;
+  uint8_t msg_type = ((pData[0]) & 0b11100000) >> 6;
 
   // on redirige vers la bonne fonction
   if (msg_type == INIT) // init
@@ -123,6 +123,14 @@ void Handle_Message(uint8_t itf, uint8_t *pData)
   {
     Handle_Message_to_Source(pData);
   }
+  else if(msg_type == MSG_TO_MULT_MODULES) // message to multiple modules
+  {
+    Handle_Message_to_Multiple_Modules(pData);
+  }
+  else if (msg_type == MSG_TO_ALL) // message to all
+  {
+    Handle_Message_to_All(pData);
+  }
 }
 
 
@@ -132,8 +140,8 @@ void Handle_Message_init(uint8_t itf, uint8_t *pData)
   // l'init est donc l'interface du père du module (dans l'arbre)
   father_itf = itf;
 
-  if (((pData[0]) & 0b00111111) == 1)
-    // les 6 derniers bits de l'header code le nombre de sous-messages
+  if (((pData[0]) & 0b00011111) == 1)
+    // les 5 derniers bits de l'header code le nombre de sous-messages
     // naturellement, l'init (qui ne transmet pas de données particulières)
     // est codé sur un seul sous-message. Ainsi vérifier cela permet de s'assurer
     // que le message n'est pas un message fantôme
@@ -170,11 +178,11 @@ void Handle_Message_init(uint8_t itf, uint8_t *pData)
 
 void Handle_Message_init_r(uint8_t itf, uint8_t *pData)
 {
-  // les 6 derniers bits du header code le nombre de sous-messages
+  // les 5 derniers bits du header code le nombre de sous-messages
   // ainsi, on regarde combien de sous-messages on doit stocker
   if (msg_to_store[itf] == 1)
   {
-    msg_to_store[itf] = (pData[0]) & 0b00111111;
+    msg_to_store[itf] = (pData[0]) & 0b00011111;
   }
 
   // on stocke le sous-message
@@ -259,7 +267,7 @@ void Send_init_r()
     // pour chaque sous-message
   {
     // on ajoute le bon header
-    msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
+    msg_to_send[msg_i][0] = (msg_type << 5) + nb_msg;
     // on envoie le message au père
     Transmit(father_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
   }
@@ -271,9 +279,9 @@ void Handle_Message_to_Module(uint8_t *pData)
   if (msg_to_store[father_itf] == 0)
     // si on ne sait pas encore combien de sous-messages on doit stocker
   {
-    // comme les 6 derniers bits du header code le nombre de sous-messages
+    // comme les 5 derniers bits du header code le nombre de sous-messages
     // on regarde combien de sous-messages on doit stocker
-    msg_to_store[father_itf] = (pData[0]) & 0b00111111;
+    msg_to_store[father_itf] = (pData[0]) & 0b00011111;
   }
 
   // on stocke le message
@@ -406,7 +414,7 @@ void Transfer_Message_to_Module()
     // pour chaque sous-message
   {
     // on ajoute le bon header
-    msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
+    msg_to_send[msg_i][0] = (msg_type << 5) + nb_msg;
     // on envoie le message
     uint8_t t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
 
@@ -416,7 +424,7 @@ void Transfer_Message_to_Module()
       // on signale ce problème à la source
       
       // contenu du message d'erreur
-      char msg_content[] = "error"; // TODO : à modifier ?
+      char msg_content[] = "error de communication"; // TODO : à modifier ?
       // longueur du message
       const uint8_t length = strlen(msg_content);
       
@@ -440,10 +448,9 @@ void Transfer_Message_to_Module()
 void Read_Message(uint8_t *pData)
 {
   // TODO : à compléter
-  // Il faudrait que le premier message reçu soit une initialisation de l'identifiant
-  // du module
+  // Il serait intéressant que le premier message reçu par un module depuis la source soit une
+  // initialisation de l'identifiant de ce module
 }
-
 
 
 void Handle_Message_to_Source(uint8_t *pData)
@@ -475,17 +482,45 @@ void Send_Message_to_Source(uint8_t *pData)
     message[write_msg_i][write_byte_i] = pData[read_byte_i];
   }
 
+
+  // le type du message : message to source
+  uint8_t msg_type = MSG_TO_SOURCE;
   // le nombre de sous-messages
   int nb_msg = write_msg_i + 1;
   for (int msg_i = 0; msg_i <= write_msg_i; msg_i++)
     // pour chaque sous-message
   {
     // on ajoute le bon header
-    message[msg_i][0] = (MSG_TO_SOURCE << 6) + nb_msg;
+    message[msg_i][0] = (msg_type << 5) + nb_msg;
     // on envoie le message
     Transmit(father_itf, message[msg_i], BUFFSIZE, TIME_OUT);
   }
 }
+
+
+void Handle_Message_to_Multiple_Modules(uint8_t *pData)
+{
+  // TODO : à compléter
+}
+
+
+void Transfer_Message_to_Multiple_Modules()
+{
+  // TODO : à compléter
+}
+
+
+void Handle_Message_to_All(uint8_t *pData)
+{
+  // TODO : à compléter
+}
+
+
+void Transfer_Message_to_All()
+{
+  // TODO : à compléter
+}
+
 
 int compareArrays(uint8_t *a, uint8_t *b, int size)
 {
