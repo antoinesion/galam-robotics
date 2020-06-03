@@ -511,16 +511,131 @@ void Transfer_Message_to_Multiple_Modules()
 
 
 void Handle_Message_to_All(uint8_t *pData)
+
 {
-  // TODO : à compléter
+  if (msg_to_store[father_itf] == 0)
+    // si on ne sait pas encore combien de sous-messages on doit stocker
+  {
+    // comme les 5 derniers bits du header code le nombre de sous-messages
+    // on regarde combien de sous-messages on doit stocker
+    msg_to_store[father_itf] = (pData[0]) & 0b00011111;
+  }
 }
+
+  // on stocke le message
+  Store_Message(father_itf, pData);
+
+
+
+if (msg_stored[father_itf] == msg_to_store[father_itf])
+  // si on a recu le bon nombre de sous-messages, on peut donc traiter la transmission
+{
+
+// On transfère tout de suite le message avant de le lire, c'est un choix modifiable.
+// On imagine que si il s'agit d'un arrêt d'urgence il vaut mieux
+// que les fils recoivent avant que le père s'éteigne.
+
+Transfer_Message_to_All()
+
+{
+      // on réécrit le message dans un unique tableau d'octets
+      uint8_t message[(BUFFSIZE - 1) * NB_MAX_SBMSG] = {0};
+
+      // indices de lecture et d'écriture
+      int read_msg_i = 0;
+      int read_byte_i = 1, write_byte_i = 0;
+      int read_offset = 4, write_offset = 6;
+      uint8_t and_op = 0b00110000;
+
+      while (read_msg_i < msg_stored[father_itf])
+	// tant que l'on n'a pas lu tous les sous-messages
+      {
+	// on réécrit dans le tableau du message
+	uint8_t value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+	message[write_byte_i] += value << write_offset;
+	incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 2);
+
+	// gestion des indices d'écriture
+	if (write_offset == 0)
+	{
+	  write_offset = 6;
+	  write_byte_i++;
+	}
+	else
+	{
+	  write_offset -= 2;
+	}
+      }
+
+      // on peut maintenant lire le message
+      Read_Message(message);
+
+      // puis on vide le stockage de l'interface du père
+      Empty_Storage(father_itf);
+    }
+  }
+
 
 
 void Transfer_Message_to_All()
 {
-  // TODO : à compléter
-}
+// Empty_Storage(father_itf);  // Attention inutile et dangereux car conflit entre tranfer et read dans handle
 
+// Comme on n'a pas parcourue le message, on récupère le nombre de sous message directement dans le header. 
+
+  // le type du message : message to son
+  uint8_t msg_type = MSG_TO_MODULE;
+  // le nombre de sous-messages pour cette transmission qu'on récupère directement dans le header. 
+  // NOTE POUR SION : on a fait différement que dans transfer to module car içi pas besoin de parcourir le message. 
+
+  uint8_t nb_msg = (pData[0]) & 0b00011111;
+
+// on va se balader de fils en fils, avec next_itf_index.
+
+for(int next_itf_index = 0, next_itf_index < 2, next_itf_index++)
+{
+    //on récupère le nom d'un fils. 
+    next_itf = son_itfs[next_itf_index] 
+
+    //on veut juste vérifier que next_itf désigne bien un fils, j'ai oublié la tout de suite comment on désigne un "non-fils"
+
+ if (next_itf != UNKNOWN_ITF)
+ {
+  for (int msg_i = 0; msg_i <= write_msg_i; msg_i++)
+    {
+    // pour chaque sous-message 
+    // on ajoute le bon header // NOTE POUR SION, je sais pas si on a besoin de faire ça vu qu'on ne veut pas toucher au message
+    msg_to_send[msg_i][0] = (msg_type << 5) + nb_msg;
+    // on envoie le message
+    uint8_t t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
+
+    if (t == 0)
+      // si la transmission a échoué
+    {
+      // on signale ce problème à la source
+      
+      // contenu du message d'erreur
+      char msg_content[] = "error de communication"; // TODO : à modifier ?
+      // longueur du message
+      const uint8_t length = strlen(msg_content);
+      
+      // le message d'erreur
+      uint8_t error_msg[length + 1];
+      // le premier octet indique la longeur du message
+      error_msg[0] = length;
+      // puis on remplit avec le contenu du message
+      for (int i = 1; i < length + 1; i++)
+      {
+	error_msg[i] = (uint8_t) msg_content[i - 1];
+      }
+      Send_Message_to_Source(error_msg);
+      break;
+    }
+
+  }
+ }
+}
+}
 
 int compareArrays(uint8_t *a, uint8_t *b, int size)
 {
