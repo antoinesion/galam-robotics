@@ -7,7 +7,7 @@ uint8_t rx1[BUFFSIZE];
 uint8_t rx2[BUFFSIZE];
 
 uint8_t father_itf = UNKNOWN_ITF; // interface du père
-uint8_t son_itfs[2] = {UNKNOWN_ITF, UNKNOWN_ITF}; // interfaces des fils
+uint8_t son_itfs[2] = {UNKNOWN_ITF, UNKNOWN_ITF}; // identifiants d'interface des fils
 int son_nb = 0; // nombre de fils
 
 uint8_t msg_stored[3] = {0, 0, 0}; // nombre de sous-messages stockés par interface
