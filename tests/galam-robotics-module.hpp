@@ -7,17 +7,19 @@
 #include <fstream>
 
 #define UNKNOWN_ID 0
-#define NB_ITF 3
-#define UNKNOWN_ITF 4
-#define BUFFSIZE 32
-#define NB_MAX_SBMSG 4
-#define INIT 0
-#define INIT_R 1
-#define MSG_TO_MODULE 2
-#define MSG_TO_SOURCE 3
-#define TIME_OUT 500
-#define END_NODE 3
-#define END_SEGMENT_ROUTING 3
+#define NB_ITF 3 // nombre d'interfaces sur un module
+#define UNKNOWN_ITF 4 // code pour une interface inconnue
+#define BUFFSIZE 32 // taille en octet des transmissions
+#define NB_MAX_SBMSG 4 // nombre maximal de sous-messages
+#define INIT 0 // code pour un message de type init
+#define INIT_R 1 // code pour un message de type init_r
+#define MSG_TO_MODULE 2 // code pour un message destiné à un module
+#define MSG_TO_SOURCE 3 // code pour un message destiné à la source
+#define MSG_TO_MULT_MODULES 4 // code pour un message destiné à plusieurs modules
+#define MSG_TO_ALL 5 // code pour un message destiné à tous les modules
+#define TIME_OUT 500 // temps maximal d'attente pour la transmission
+#define END_NODE 3 // code pour signaler une fin de noeud dans l'init_r / segment routing ++
+#define END_SEGMENT_ROUTING 3 // code pour signaler la fin du segment routing dans un message
 
 /* --- Comparaison de 2 tableaux ---
  * Cette fonction envoie 1 si ils sont identiques, 0 sinon. */
@@ -115,6 +117,31 @@ class Module
      * Cette fonction peut être appelée lorsque l'on souhaite envoyer un message à la source.
      * IMPORTANT : le premier octet de pData donne la longueur du message qui le suit en octet. */
     void Send_Message_to_Source(uint8_t *pData);
+
+    /* --- Gestion d'un message pour plusieurs modules ---
+     * Cette fonction est appelee lors de la réception d'un message destiné à plusieurs modules. Elle a
+     * pour but d'appeler la fonction Read_Message si le message est destiné à ce module et de
+     * transférer le message après de la réception complète de ce dernier. */
+    void Handle_Message_to_Multiple_Modules(uint8_t *pData);
+
+    /* --- Transfert d'un message pour plusieurs modules --- 
+     * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à plusieurs
+     * modules. Elle a pour but de réécrire le message à transmettre et l'envoyer aux bon fils grâce au
+     * principe du segment routing. Elle renvoie au bout de combien de bits se situe la fin du segment
+     * routing. */
+    int Transfer_Message_to_Multiple_Modules();
+
+    /* --- Gestion d'un message pour tous les modules ---
+     * Cette fonction est appelée lors de la réception d'un message destiné à tous les modules. Elle a
+     * pour but d'appeler la fonction Read_Message et la fonction Transfer_Message_to_all après la
+     * réception complète du message. */
+    void Handle_Message_to_All(uint8_t *pData);
+
+    /* --- Transfer d'un message pour tous les modules ---
+     * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à tous les modules.
+     * Elle a pour but de transferer tel quel le message aux fils du module. */
+    void Transfer_Message_to_All();
+
 
     // fonctions ajoutees pour assurer les tests
     uint8_t get_random_itf();

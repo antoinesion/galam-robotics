@@ -104,7 +104,7 @@ void Handle_Message(uint8_t itf, uint8_t *pData)
 {
   // le type du message est écrit sur les trois premiers bits du header
   // on recupère donc ce numéro codant ce type
-  uint8_t msg_type = ((pData[0]) & 0b11100000) >> 6;
+  uint8_t msg_type = ((pData[0]) & 0b11100000) >> 5;
 
   // on redirige vers la bonne fonction
   if (msg_type == INIT) // init
@@ -529,7 +529,7 @@ void Handle_Message_to_Multiple_Modules(uint8_t *pData)
       // indices de lecture que l'on déduit grâce au bits où se trouve la fin du segment routing ++
       int read_msg_i = end_segment_routing / (8 * (BUFFSIZE - 1));
       end_segment_routing = end_segment_routing % (8 * (BUFFSIZE - 1));
-      int read_byte_i = end_segment_routing / 8;
+      int read_byte_i = 1 + end_segment_routing / 8;
       int read_offset = 7 - (end_segment_routing % 8);
       uint8_t and_op = 0b10000000 >> (end_segment_routing % 8);
 
@@ -553,7 +553,7 @@ void Handle_Message_to_Multiple_Modules(uint8_t *pData)
 	}
 	else
 	{
-	  write_offset--;;
+	  write_offset--;
 	}
       }
 
@@ -574,8 +574,10 @@ int Transfer_Message_to_Multiple_Modules()
 
   // indices d'écriture
   int write_msg_i[NB_ITF - 1] = {0};
-  int write_byte_i[NB_ITF - 1] = {1};
-  int write_offset[NB_ITF - 1] = {7};
+  int write_byte_i[NB_ITF - 1];
+  for (int i = 0; i < NB_ITF - 1; i++) {write_byte_i[i] = 1;}
+  int write_offset[NB_ITF - 1];
+  for (int i = 0; i < NB_ITF - 1; i++) {write_offset[i] = 7;}
 
   // indices de lecture
   int read_msg_i = 0;
@@ -592,29 +594,37 @@ int Transfer_Message_to_Multiple_Modules()
   // profondeur dans le arbre depuis ce module dans le segment routing ++
   int depth = 0;
 
+  uint8_t itf = 0;
+  uint8_t value;
   while (depth >= 0)
   {
-    // bit de lecture
-    uint8_t value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
-    incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
-    if (depth > 0)
-      // si on est dans une partie de segement routing a transmettre à un fils
+    if (itf != END_NODE)
+      // si la dernière interface lue n'est pas une fin de noeud
     {
-      // on le recopie dans le message à envoyer
-      msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
-	nb_itfs_to_trsmt - 1]] += value << write_offset[nb_itfs_to_trsmt - 1];
-      incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
-	  &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
+      // bit de lecture
+      value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+      incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+      if (depth > 0)
+	// si on est dans une partie de segment routing a transmettre à un fils
+      {
+	// on le recopie dans le message à envoyer
+	msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
+	  nb_itfs_to_trsmt - 1]] += value << write_offset[nb_itfs_to_trsmt - 1];
+	incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
+	    &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
+      }
+
+      // on incremente le compteur de bits
+      end_segment_routing++;
     }
 
-    uint8_t itf = 0;
-
+    itf = 0;
     // premier bit d'itf
     value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
     incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
     itf += value << 1;
     if (depth > 0)
-      // si on est dans une partie de segement routing a transmettre à un fils
+      // si on est dans une partie de segment routing a transmettre à un fils
     {
       // on le recopie dans le message à envoyer
       msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
@@ -622,13 +632,15 @@ int Transfer_Message_to_Multiple_Modules()
       incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
 	  &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
     }
+    // on incremente le compteur de bits
+    end_segment_routing++;
 
     // second bit d'itf
     value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
     incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
     itf += value;
     if (depth > 0)
-      // si on est dans une partie de segement routing a transmettre à un fils
+      // si on est dans une partie de segment routing a transmettre à un fils
     {
       // on le recopie dans le message à envoyer
       msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
@@ -636,6 +648,8 @@ int Transfer_Message_to_Multiple_Modules()
       incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
 	  &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
     }
+    // on incremente le compteur de bits
+    end_segment_routing++;
 
     if (itf == END_NODE)
       // si c'est une fin de noeud, on diminue la profondeur dans l'arbre
@@ -654,9 +668,6 @@ int Transfer_Message_to_Multiple_Modules()
 	itfs_to_trsmt[nb_itfs_to_trsmt - 1] = itf;
       }
     }
-
-    // on incremente le compteur de bits
-    end_segment_routing += 3;
   }
 
   // on lit la longueur du message en octet qui se situe juste après le segment routing ++
@@ -665,7 +676,7 @@ int Transfer_Message_to_Multiple_Modules()
   for (int bit_i = 0; bit_i < 8; bit_i++)
   {
     // on lit ce qu'on a stocké
-    uint8_t value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+    value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
     incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
     // on recopie pour les interfaces par lesquelles on doit transmettre
     for (int itf_i = 0; itf_i < nb_itfs_to_trsmt; itf_i++)
@@ -683,7 +694,7 @@ int Transfer_Message_to_Multiple_Modules()
     // (cela évite notamment d'envoyer un sous-message vide à la fin)
   {
     // on lit ce qu'on a stocké
-    uint8_t value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+    value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
     incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
     // on recopie pour les interfaces par lesquelles on doit transmettre
     for (int itf_i = 0; itf_i < nb_itfs_to_trsmt; itf_i++)

@@ -83,9 +83,9 @@ void Module::Empty_Storage(uint8_t itf)
 
 void Module::Handle_Message(uint8_t itf, uint8_t *pData)
 {
-  // le type du message est écrit sur les deux premiers bits du header
+  // le type du message est écrit sur les trois premiers bits du header
   // on recupère donc ce numéro codant ce type
-  uint8_t msg_type = ((pData[0]) & 0b11000000) >> 6;
+  uint8_t msg_type = ((pData[0]) & 0b11100000) >> 5;
 
   // on redirige vers la bonne fonction
   if (msg_type == INIT) // init
@@ -104,6 +104,14 @@ void Module::Handle_Message(uint8_t itf, uint8_t *pData)
   {
     Handle_Message_to_Source(pData);
   }
+  else if(msg_type == MSG_TO_MULT_MODULES) // message to multiple modules
+  {
+    Handle_Message_to_Multiple_Modules(pData);
+  }
+  else if (msg_type == MSG_TO_ALL) // message to all
+  {
+    Handle_Message_to_All(pData);
+  }
 }
 
 void Module::Handle_Message_init(uint8_t itf, uint8_t *pData)
@@ -112,8 +120,8 @@ void Module::Handle_Message_init(uint8_t itf, uint8_t *pData)
   // l'init est donc l'interface du père du module (dans l'arbre)
   father_itf = itf;
 
-  if (((pData[0]) & 0b00111111) == 1)
-    // les 6 derniers bits de l'header code le nombre de sous-messages
+  if (((pData[0]) & 0b00011111) == 1)
+    // les 5 derniers bits de l'header code le nombre de sous-messages
     // naturellement, l'init (qui ne transmet pas de données particulières)
     // est codé sur un seul sous-message. Ainsi vérifier cela permet de s'assurer
     // que le message n'est pas un message fantôme
@@ -151,11 +159,11 @@ void Module::Handle_Message_init(uint8_t itf, uint8_t *pData)
 
 void Module::Handle_Message_init_r(uint8_t itf, uint8_t *pData)
 {
-  // les 6 derniers bits du header code le nombre de sous-messages
+  // les 5 derniers bits du header code le nombre de sous-messages
   // ainsi, on regarde combien de sous-messages on doit stocker
   if (msg_to_store[itf] == 1)
   {
-    msg_to_store[itf] = (pData[0]) & 0b00111111;
+    msg_to_store[itf] = (pData[0]) & 0b00011111;
   }
 
   // on stocke le sous-message
@@ -239,7 +247,7 @@ void Module::Send_init_r()
     // pour chaque sous-message
   {
     // on ajoute le bon header
-    msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
+    msg_to_send[msg_i][0] = (msg_type << 5) + nb_msg;
     // on envoie le message au père
     Transmit(father_itf, msg_to_send[msg_i]);
   }
@@ -252,9 +260,9 @@ void Module::Handle_Message_to_Module(uint8_t *pData)
   if (msg_to_store[father_itf] == 0)
     // si on ne sait pas encore combien de sous-messages on doit stocker
   {
-    // comme les 6 derniers bits du header code le nombre de sous-messages
+    // comme les 5 derniers bits du header code le nombre de sous-messages
     // on regarde combien de sous-messages on doit stocker
-    msg_to_store[father_itf] = (pData[0]) & 0b00111111;
+    msg_to_store[father_itf] = (pData[0]) & 0b00011111;
   }
 
   // on stocke le message
@@ -386,7 +394,7 @@ void Module::Transfer_Message_to_Module()
     // pour chaque sous-message
   {
     // on ajoute le bon header
-    msg_to_send[msg_i][0] = (msg_type << 6) + nb_msg;
+    msg_to_send[msg_i][0] = (msg_type << 5) + nb_msg;
     // on envoie le message
     uint8_t t = Transmit(next_itf, msg_to_send[msg_i]);
     
@@ -467,17 +475,373 @@ void Module::Send_Message_to_Source(uint8_t *pData)
     message[write_msg_i][write_byte_i] = pData[read_byte_i];
   }
 
+  // le type du message : message to source
+  uint8_t msg_type = MSG_TO_SOURCE;
   // le nombre de sous-messages
   int nb_msg = write_msg_i + 1;
   for (int msg_i = 0; msg_i <= write_msg_i; msg_i++)
     // pour chaque sous-message
   {
     // on ajoute le bon header
-    message[msg_i][0] = (MSG_TO_SOURCE << 6) + nb_msg;
+    message[msg_i][0] = (msg_type << 5) + nb_msg;
     // on envoie le message
     Transmit(father_itf, message[msg_i]);
   }
 }
+
+void Module::Handle_Message_to_Multiple_Modules(uint8_t *pData)
+{
+  if (msg_to_store[father_itf] == 0)
+    // si on ne sait pas encore combien de sous-messages on doit stocker
+  {
+    // comme les 5 derniers bits du header code le nombre de sous-messages
+    // on regarde combien de sous-messages on doit stocker
+    msg_to_store[father_itf] = (pData[0]) & 0b00011111;
+  }
+
+  // on stocke le message
+  Store_Message(father_itf, pData);
+
+  if (msg_stored[father_itf] == msg_to_store[father_itf])
+    // si on a recu le bon nombre de sous-messages, on peut donc traiter la transmission
+  {
+    // on transfère éventuellement le message aux fils
+    int end_segment_routing = Transfer_Message_to_Multiple_Modules();
+
+    // segment routing ++ : le premier bit du premier sous-message nous indique si on ce module doit
+    // lire le message
+    uint8_t read = (storage[father_itf][0][1] & 0b10000000) >> 7;
+
+    if (read == 1)
+      // si ce module doit lire le message
+    {
+      // on réécrit le message dans un unique tableau d'octets
+      uint8_t message[(BUFFSIZE - 1) * NB_MAX_SBMSG] = {0};
+
+      // indices de lecture que l'on déduit grâce au bits où se trouve la fin du segment routing ++
+      int read_msg_i = end_segment_routing / (8 * (BUFFSIZE - 1));
+      end_segment_routing = end_segment_routing % (8 * (BUFFSIZE - 1));
+      int read_byte_i = 1 + end_segment_routing / 8;
+      int read_offset = 7 - (end_segment_routing % 8);
+      uint8_t and_op = 0b10000000 >> (end_segment_routing % 8);
+
+      // indices d'écriture
+      int write_byte_i = 0;
+      int write_offset = 7;
+
+      while (read_msg_i < msg_stored[father_itf])
+	// tant que l'on n'a pas lu tous les sous-messages
+      {
+	// on réécrit dans le tableau du message
+	uint8_t value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+	message[write_byte_i] += value << write_offset;
+	incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+
+	// gestion des indices d'écriture
+	if (write_offset == 0)
+	{
+	  write_offset = 7;
+	  write_byte_i++;
+	}
+	else
+	{
+	  write_offset--;
+	}
+      }
+
+      // on peut maintenant lire le message
+      Read_Message(message);
+    }
+    
+    // puis on vide le stockage de l'interface du père
+    Empty_Storage(father_itf);
+  }
+}
+
+
+int Module::Transfer_Message_to_Multiple_Modules()
+{
+  // tableaux de stockage des messages à envoyer aux fils
+  uint8_t msg_to_send[NB_ITF - 1][NB_MAX_SBMSG][BUFFSIZE] = {0};
+
+  // indices d'écriture
+  int write_msg_i[NB_ITF - 1] = {0};
+  int write_byte_i[NB_ITF - 1];
+  for (int i = 0; i < NB_ITF - 1; i++) {write_byte_i[i] = 1;}
+  int write_offset[NB_ITF - 1];
+  for (int i = 0; i < NB_ITF - 1; i++) {write_offset[i] = 7;}
+
+  // indices de lecture
+  int read_msg_i = 0;
+  int read_byte_i = 1;
+  int read_offset = 7;
+  uint8_t and_op = 0b10000000;
+
+  // tableau qui contiendra les interfaces par lesquelles on doit transmettre le message
+  uint8_t itfs_to_trsmt[NB_ITF - 1] = {UNKNOWN_ITF};
+  int nb_itfs_to_trsmt = 0;
+
+  // compteur de bits avant la fin du segment routing ++
+  int end_segment_routing = 0;
+  // profondeur dans le arbre depuis ce module dans le segment routing ++
+  int depth = 0;
+
+  uint8_t itf = 0;
+  uint8_t value;
+  while (depth >= 0)
+  {
+    if (itf != END_NODE)
+      // si la dernière interface lue n'est pas une fin de noeud
+    {
+      // bit de lecture
+      value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+      incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+      if (depth > 0)
+	// si on est dans une partie de segment routing a transmettre à un fils
+      {
+	// on le recopie dans le message à envoyer
+	msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
+	  nb_itfs_to_trsmt - 1]] += value << write_offset[nb_itfs_to_trsmt - 1];
+	incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
+	    &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
+      }
+
+      // on incremente le compteur de bits
+      end_segment_routing++;
+    }
+
+    itf = 0;
+    // premier bit d'itf
+    value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+    incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+    itf += value << 1;
+    if (depth > 0)
+      // si on est dans une partie de segment routing a transmettre à un fils
+    {
+      // on le recopie dans le message à envoyer
+      msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
+	nb_itfs_to_trsmt - 1]] += value << write_offset[nb_itfs_to_trsmt - 1];
+      incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
+	  &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
+    }
+    // on incremente le compteur de bits
+    end_segment_routing++;
+
+    // second bit d'itf
+    value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+    incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+    itf += value;
+    if (depth > 0)
+      // si on est dans une partie de segment routing a transmettre à un fils
+    {
+      // on le recopie dans le message à envoyer
+      msg_to_send[nb_itfs_to_trsmt - 1][write_msg_i[nb_itfs_to_trsmt - 1]][write_byte_i[
+	nb_itfs_to_trsmt - 1]] += value << write_offset[nb_itfs_to_trsmt - 1];
+      incr_indexes(&write_msg_i[nb_itfs_to_trsmt - 1], &write_byte_i[nb_itfs_to_trsmt - 1],
+	  &write_offset[nb_itfs_to_trsmt - 1], NULL, 1);
+    }
+    // on incremente le compteur de bits
+    end_segment_routing++;
+
+    if (itf == END_NODE)
+      // si c'est une fin de noeud, on diminue la profondeur dans l'arbre
+    {
+      depth--;
+    }
+    else
+    {
+      // sinon, au contraire, on descend dans l'arbre
+      depth++;
+
+      if (depth == 1)
+	// si on est à la couche juste en dessous c'est qu'on transmet à un nouveau fils
+      {
+	nb_itfs_to_trsmt++;
+	itfs_to_trsmt[nb_itfs_to_trsmt - 1] = itf;
+      }
+    }
+  }
+
+  // on lit la longueur du message en octet qui se situe juste après le segment routing ++
+  // i.e. au tout début du message applicatif, sur le premier octet
+  uint8_t length = 0;
+  for (int bit_i = 0; bit_i < 8; bit_i++)
+  {
+    // on lit ce qu'on a stocké
+    value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+    incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+    // on recopie pour les interfaces par lesquelles on doit transmettre
+    for (int itf_i = 0; itf_i < nb_itfs_to_trsmt; itf_i++)
+    {
+      msg_to_send[itf_i][write_msg_i[itf_i]][write_byte_i[itf_i]] += value << write_offset[itf_i];
+      incr_indexes(&write_msg_i[itf_i], &write_byte_i[itf_i], &write_offset[itf_i], NULL, 1);
+    }
+
+    // on determine la longueur du message applicatif
+    length += value << (7 - bit_i);
+  }
+
+  for (int bit_i = 0; bit_i < length*8; bit_i++)
+    // on réécrit seulement ce qui nous interesse grâce à la longueur du message applicatif
+    // (cela évite notamment d'envoyer un sous-message vide à la fin)
+  {
+    // on lit ce qu'on a stocké
+    value = (storage[father_itf][read_msg_i][read_byte_i] & and_op) >> read_offset;
+    incr_indexes(&read_msg_i, &read_byte_i, &read_offset, &and_op, 1);
+    // on recopie pour les interfaces par lesquelles on doit transmettre
+    for (int itf_i = 0; itf_i < nb_itfs_to_trsmt; itf_i++)
+    {
+      msg_to_send[itf_i][write_msg_i[itf_i]][write_byte_i[itf_i]] += value << write_offset[itf_i];
+      incr_indexes(&write_msg_i[itf_i], &write_byte_i[itf_i], &write_offset[itf_i], NULL, 1);
+    }
+  }
+
+  // le type du message : message to multiple modules
+  uint8_t msg_type = MSG_TO_MULT_MODULES;
+  // pour chaque interface par laquelle on doit transmettre
+  for (int itf_i = 0; itf_i < nb_itfs_to_trsmt; itf_i++)
+  {
+    // le nombre de sous-messages pour cette transmission
+    uint8_t nb_msg = write_msg_i[itf_i] + 1;
+    for (int msg_i = 0; msg_i <= write_msg_i[itf_i]; msg_i++)
+      // pour chaque sous-message
+    {
+      // on ajoute le bon header
+      msg_to_send[itf_i][msg_i][0] = (msg_type << 5) + nb_msg;
+      // on envoie le message
+      uint8_t t = Transmit(itfs_to_trsmt[itf_i], msg_to_send[itf_i][msg_i]);
+
+      if (t == 0)
+	// si la transmission a échoué
+      {
+	// on signale ce problème à la source
+	
+	// contenu du message d'erreur
+	char msg_content[] = "erreur de communication"; // TODO : à modifier ?
+	// longueur du message
+	const uint8_t length = strlen(msg_content);
+	
+	// le message d'erreur
+	uint8_t error_msg[length + 1];
+	// le premier octet indique la longeur du message
+	error_msg[0] = length;
+	// puis on remplit avec le contenu du message
+	for (int i = 1; i < length + 1; i++)
+	{
+	  error_msg[i] = (uint8_t) msg_content[i - 1];
+	}
+	Send_Message_to_Source(error_msg);
+	break;
+      }
+    }
+  }
+
+  // on renvoie le nombre de bits avant la fin du segment routing ++
+  return end_segment_routing;
+}
+
+
+void Module::Handle_Message_to_All(uint8_t *pData)
+{
+  if (msg_to_store[father_itf] == 0)
+    // si on ne sait pas encore combien de sous-messages on doit stocker
+  {
+    // comme les 5 derniers bits du header code le nombre de sous-messages
+    // on regarde combien de sous-messages on doit stocker
+    msg_to_store[father_itf] = (pData[0]) & 0b00011111;
+  }
+
+  // on stocke le message
+  Store_Message(father_itf, pData);
+
+  if (msg_stored[father_itf] == msg_to_store[father_itf])
+    // si on a recu le bon nombre de sous-messages, on peut donc traiter la transmission
+  {
+    // on transfère tout de suite le message aux fils avant de le lire (c'est un choix modifiable).
+    // on imagine par exemple que si il s'agit d'un arrêt d'urgence il vaut mieux
+    // que les fils recoivent le message avant que le père s'éteigne.
+    Transfer_Message_to_All();
+
+    // on réécrit le message dans un unique tableau d'octets
+    uint8_t message[(BUFFSIZE - 1) * NB_MAX_SBMSG] = {0};
+
+    // indices de lecture et d'écriture
+    int read_msg_i = 0;
+    int read_byte_i = 1, write_byte_i = 0;
+
+    while (read_msg_i < msg_stored[father_itf])
+      // tant que l'on n'a pas lu tous les sous-messages
+    {
+      // on réécrit dans le tableau du message
+      message[write_byte_i] = storage[father_itf][read_msg_i][read_byte_i];
+
+      // gestion des indices d'écriture
+      write_byte_i++;
+      // gestion des indices de lecture
+      if (read_byte_i == BUFFSIZE - 1)
+      {
+	read_byte_i = 1;
+	read_msg_i++;
+      }
+      else
+      {
+	read_byte_i++;
+      }
+    }
+
+    // on peut maintenant lire le message
+    Read_Message(message);
+
+    // puis on vide le stockage de l'interface du père
+    Empty_Storage(father_itf);
+  }
+}
+
+
+void Module::Transfer_Message_to_All()
+{
+  // le type du message : message to all
+  uint8_t msg_type = MSG_TO_ALL;
+  // le nombre de sous-messages pour cette transmission qu'on récupère directement dans le header. 
+  uint8_t nb_msg = (storage[father_itf][0][0]) & 0b00011111;
+
+  // pour chaque fils
+  for(int son_i = 0; son_i < son_nb; son_i++)
+  {
+    // on récupère l'interface du fils
+    uint8_t son_itf = son_itfs[son_i];
+
+    for (int msg_i = 0; msg_i < nb_msg; msg_i++)
+    {
+      // on transfère le message au fils
+      uint8_t t = Transmit(son_itf, storage[father_itf][msg_i]);
+
+      if (t == 0)
+	// si la transmission a échoué
+      {
+	// on signale ce problème à la source
+	
+	// contenu du message d'erreur
+	char msg_content[] = "erreur de communication"; // TODO : à modifier ?
+	// longueur du message
+	const uint8_t length = strlen(msg_content);
+	
+	// le message d'erreur
+	uint8_t error_msg[length + 1];
+	// le premier octet indique la longeur du message
+	error_msg[0] = length;
+	// puis on remplit avec le contenu du message
+	for (int i = 1; i < length + 1; i++)
+	{
+	  error_msg[i] = (uint8_t) msg_content[i - 1];
+	}
+	Send_Message_to_Source(error_msg);
+	break;
+      }
+    }
+  }
+}
+
 
 uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
 {
@@ -485,7 +849,7 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
   {
     if (itf == father_itf)
     {
-      if ((pData[0] & 0b11000000) >> 6 == INIT_R)
+      if ((pData[0] & 0b11100000) >> 5 == INIT_R)
       {
 
 	std::cout << "init_r message received (written in init_r.txt)" << std::endl;
@@ -505,7 +869,7 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
 	std::cout << std::endl;
 	file.close();
       }
-      if ((pData[0] & 0b11000000) >> 6 == MSG_TO_SOURCE)
+      if ((pData[0] & 0b11100000) >> 5 == MSG_TO_SOURCE)
       {
 	if (last_message_i == 0)
 	{
@@ -513,7 +877,7 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
 	}
 	last_message_i++;
 	
-	if (last_message_i == (pData[0] & 0b00111111))
+	if (last_message_i == (pData[0] & 0b00011111))
 	{
 	  if (last_message_i == 1)
 	  {
@@ -550,17 +914,17 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
   else
   {
     Module *module_to_trsmt = connections[itf];
-    // std::cout << "transmit (" << unsigned(id) << "): " << unsigned(itf) << std::endl;
+    std::cout << "transmit (" << unsigned(id) << "): " << unsigned(itf) << std::endl;
     for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
     {
       module_to_trsmt->received[connections_other_side_itf[itf]][module_to_trsmt->received_nb[connections_other_side_itf[itf]]][byte_i] = pData[byte_i];
 
-      /* std::bitset<8> byte (pData[byte_i]);
-       * std::cout << byte << " ";
-       * if (byte_i % 4 == 3)
-       * {
-       *   std::cout << std::endl;
-       * }     */
+      std::bitset<8> byte (pData[byte_i]);
+      std::cout << byte << " ";
+      if (byte_i % 4 == 3)
+      {
+	std::cout << std::endl;
+      }     
     }
 
     module_to_trsmt->received_nb[connections_other_side_itf[itf]]++;
