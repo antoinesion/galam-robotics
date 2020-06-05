@@ -12,7 +12,7 @@
 #define MSG_TO_MULT_MODULES 4 // code pour un message destiné à plusieurs modules
 #define MSG_TO_ALL 5 // code pour un message destiné à tous les modules
 #define TIME_OUT 500 // temps maximal d'attente pour la transmission
-#define END_NODE 3 // code pour signaler une fin de noeud dans l'init_r
+#define END_NODE 3 // code pour signaler une fin de noeud dans l'init_r / segment routing ++
 #define END_SEGMENT_ROUTING 3 // code pour signaler la fin du segment routing dans un message
 
 /* --- INFORMATIONS IMPORTANTES ---
@@ -113,8 +113,9 @@ void Handle_Message_to_Multiple_Modules(uint8_t *pData);
 /* --- Transfert d'un message pour plusieurs modules --- 
  * Cette fonction est appelée lorsque l'on a reçu entierement un message destiné à plusieurs
  * modules. Elle a pour but de réécrire le message à transmettre et l'envoyer aux bon fils grâce au
- * principe du segment routing. */
-void Transfer_Message_to_Multiple_Modules();
+ * principe du segment routing. Elle renvoie au bout de combien de bits se situe la fin du segment
+ * routing. */
+int Transfer_Message_to_Multiple_Modules();
 
 /* --- Gestion d'un message pour tous les modules ---
  * Cette fonction est appelée lors de la réception d'un message destiné à tous les modules. Elle a
