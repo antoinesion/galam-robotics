@@ -22,8 +22,8 @@
 #define E_NET_UNREADABLE_MSG 123 // message illisible
 
 /* --- INFORMATIONS ---
- * Ce fichier propose quelques fonctions utiles pour la source. Pour qu'elles soient entièrement
- * opérationnelles, la fonction Transmit ci-dessous doit cependant être codé. */
+ * Ce fichier propose quelques fonctions utiles pour la source. Pour que ces fonctionssoient
+ * opérationnelles, la fonction Transmit ci-dessous doit cependant être codée. */
 
 /* --- Transmission d'un message au premier module ---
  * Renvoie 0 en cas d'erreur et 1 en cas de succès : En cas de succès, transmet length octet contenus
