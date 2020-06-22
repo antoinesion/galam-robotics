@@ -14,6 +14,7 @@
 #define UNKNOWN_ITF 4 // code pour une interface inconnue
 #define BUFFSIZE 32 // taille en octet des transmissions
 #define NB_MAX_SBMSG 4 // nombre maximal de sous-messages
+#define UNKNOWN_INIT_ID 0 // code pour un id d'init inconnu
 #define INIT 0 // code pour un message de type init
 #define INIT_R 1 // code pour un message de type init_r
 #define IDENTIFICATION 2 // code pour un message d'identification
@@ -50,8 +51,8 @@ class Module
     uint8_t father_itf = UNKNOWN_ITF; // interface du père
     uint8_t son_itfs[2] = {UNKNOWN_ITF, UNKNOWN_ITF}; // identifiants d'interface des fils
     int son_nb = 0; // nombre de fils
-    bool init_r_sent = false; // booléen qui indique si l'init_r a été envoyé
 
+    uint8_t init_id = UNKNOWN_INIT_ID; // l'identifiant du dernier init recu
     uint8_t msg_stored[3] = {0, 0, 0}; // nombre de sous-messages stockés par interface
     uint8_t msg_to_store[3] = {0, 0, 0}; // nombre de sous-message à stocker par interface
     uint8_t storage[NB_ITF][NB_MAX_SBMSG][BUFFSIZE] = {0}; // tableau de stockage des sous-messages
@@ -65,6 +66,7 @@ class Module
     std::string last_message = "";
     uint8_t last_message_id = 0;
     bool show_trsmt = true;
+    bool init_r_sent = false;
     
   public:
     uint16_t id = UNKNOWN_ID;  // id du module (modifiable grâce au message de type "identification")

@@ -6,10 +6,10 @@ uint8_t rx0[BUFFSIZE]; // tableaux pour réceptionner les messages
 uint8_t rx1[BUFFSIZE];
 uint8_t rx2[BUFFSIZE];
 
+uint8_t init_id = UNKNOWN_INIT_ID; // l'identifiant du dernier init recu
 uint8_t father_itf = UNKNOWN_ITF; // interface du père
 uint8_t son_itfs[2] = {UNKNOWN_ITF, UNKNOWN_ITF}; // identifiants d'interface des fils
 int son_nb = 0; // nombre de fils
-bool init_r_sent = false; // booléen qui indique si l'init_r a été envoyé
 
 uint8_t msg_stored[3] = {0, 0, 0}; // nombre de sous-messages stockés par interface
 uint8_t msg_to_store[3] = {0, 0, 0}; // nombre de sous-message à stocker par interface
@@ -131,42 +131,40 @@ void Handle_Message(uint8_t itf, uint8_t *pData)
 
 void Handle_Message_init(uint8_t itf, uint8_t *pData)
 {
-  if (father_itf != UNKNOWN_ITF && itf != father_itf && !init_r_sent)
-    // si on a déjà reçu l'init mais qu'on le reçoit à nouveau depuis une interface qui n'est pas celle
-    // du père et que l'init_r n'a pas encore été envoyé, cela signifie qu'il y a une boucle dans l'arbre
-    // des modules
+  if (init_id == pData[1])
+    // si on déjà reçu cet init, cela signifie qu'il y a une boucle de module
   {
-    // on prévient alors la source de ce problème
-
-    // TODO : ignorer l'interface + ajouter un id à l'init
-    // le contenu du message
-    char* error_text = "boucle de modules avec l'interface ITF";
-    char error_itf[2];
-    sprintf(error_itf, "%d", itf);
-    char* msg_content = malloc(strlen(error_text)+2);
-    strcpy(msg_content, error_text);
-    strcat(msg_content, error_itf);
-
-    // longueur du message
-    const uint8_t length = strlen(msg_content);
-
-    // le message d'erreur
-    uint8_t error_msg[length];
-    // on remplit avec le contenu du message
-    for (int i = 0; i < length; i++)
+    // pour rectifier cela, on enlève le module des fils
+    if (son_itfs[0] == itf)
     {
-      error_msg[i] = (uint8_t) msg_content[i];
+      son_itfs[0] = son_itfs[1];
+      son_itfs[1] = UNKNOWN_ITF;
+      son_nb--;
     }
-    // on envoie le message d'erreur à la source
-    Send_Error_Message_to_Source(E_NET_MODULES_LOOP, error_msg, length);
+    else if (son_itfs[1] == itf)
+    {
+      son_itfs[1] = UNKNOWN_ITF;
+      son_nb--;
+    }
+
+    // on envoie l'init_r si nécessaire
+    if (compareArrays(msg_stored, msg_to_store, 3))
+      // on compare les tableaux du nombre de sous-messages stockés par interface
+      // avec celui du nombre de sous-message que l'on doit stocker par interface
+    {
+      // si les deux sont égaux, on envoie l'init_r
+      Send_init_r();
+    }
   }
   else
     // sinon, on peut initialiser ou réinitialiser le module
   {
+    // on enregistre l'id de l'init
+    init_id = pData[1];
+
     // on reset toutes les variables (utile dans le cas du réinitialisation des modules)
     for (int i = 0; i < NB_ITF - 1; i++) {son_itfs[i] = UNKNOWN_ITF;}
     son_nb = 0;
-    init_r_sent = false;
     for (int interface = 0; interface < NB_ITF; interface++) {Empty_Storage(interface);}
     id = 0;
 
@@ -187,7 +185,7 @@ void Handle_Message_init(uint8_t itf, uint8_t *pData)
 	if (itf != father_itf) // on n'envoie pas l'init au père
 	{
 	  // on transmet l'init
-	  uint8_t t = Transmit(itf, pData, BUFFSIZE, TIME_OUT);
+	  int t = Transmit(itf, pData, BUFFSIZE, TIME_OUT);
 
 	  if (t == 1) // si la transmission a reussi
 	  {
@@ -341,9 +339,7 @@ int Send_init_r()
     // on envoie le message au père
     Transmit(father_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
   }
-
-  // on actualise cette variable
-  init_r_sent = true;
+  
   return 1;
 }
 
@@ -452,20 +448,17 @@ void Handle_Message_Identification(uint8_t *pData)
 
 void Transmit_Message_Identification()
 {
-  // l'id du message situé sur le second octet
-  uint8_t msg_id = storage[father_itf][0][1];
-
   // tableau de stockage du message à envoyer
   uint8_t msg_to_send[NB_MAX_SBMSG][BUFFSIZE] = {0};
 
   // indices d'écriture
   int write_msg_i = 0;
-  int write_byte_i = 2;
+  int write_byte_i = 1;
   int write_offset = 6;
 
   // indices de lecture
   int read_msg_i = 0;
-  int read_byte_i = 2;
+  int read_byte_i = 1;
   int read_offset = 6;
   uint8_t and_op = 0b11000000;
 
@@ -503,7 +496,7 @@ void Transmit_Message_Identification()
   uint8_t msg_type = IDENTIFICATION;
   // le nombre de sous-messages pour cette transmission
   uint8_t nb_msg = write_msg_i + 1;
-  if (write_byte_i == 2 && write_offset == 6 && nb_msg > 1)
+  if (write_byte_i == 1 && write_offset == 6 && nb_msg > 1)
     // on a compté un message de trop si l'indice d'écriture est situé au début d'un nouveau
     // sous-message
   {
@@ -514,10 +507,8 @@ void Transmit_Message_Identification()
   {
     // on ajoute le bon header
     msg_to_send[msg_i][0] = (msg_type << 5) + (msg_i << 3) + nb_msg;
-    // on ajoute l'id du message
-    msg_to_send[msg_i][1] = msg_id;
     // on envoie le message
-    uint8_t t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
+    int t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
 
     if (t == 0)
       // si la transmission a échoué
@@ -805,7 +796,7 @@ void Transmit_Message_to_Module()
     // on ajoute l'id du message
     msg_to_send[msg_i][1] = msg_id;
     // on envoie le message
-    uint8_t t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
+    int t = Transmit(next_itf, msg_to_send[msg_i], BUFFSIZE, TIME_OUT);
 
     if (t == 0)
       // si la transmission a échoué
@@ -1249,7 +1240,7 @@ int Transmit_Message_to_Multiple_Modules()
       // on ajoute l'id du message
       msg_to_send[itf_i][msg_i][1] = msg_id;
       // on envoie le message
-      uint8_t t = Transmit(itfs_to_trsmt[itf_i], msg_to_send[itf_i][msg_i], BUFFSIZE, TIME_OUT);
+      int t = Transmit(itfs_to_trsmt[itf_i], msg_to_send[itf_i][msg_i], BUFFSIZE, TIME_OUT);
 
       if (t == 0)
 	// si la transmission a échoué
@@ -1454,7 +1445,7 @@ void Transmit_Message_to_All()
     for (int msg_i = 0; msg_i < nb_msg; msg_i++)
     {
       // on transfère le message au fils
-      uint8_t t = Transmit(son_itf, storage[father_itf][msg_i], BUFFSIZE, TIME_OUT);
+      int t = Transmit(son_itf, storage[father_itf][msg_i], BUFFSIZE, TIME_OUT);
 
       if (t == 0)
 	// si la transmission a échoué

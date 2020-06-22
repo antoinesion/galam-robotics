@@ -66,6 +66,7 @@ void Send_Message_to_Module(uint8_t msg_id, uint8_t module_id, std::string text,
   int write_msg_i = 0;
   int write_byte_i = 2;
   int write_offset = 6;
+
   // segment routing
   for (uint8_t itf : segment_routing[module_id])
   {
@@ -83,6 +84,7 @@ void Send_Message_to_Module(uint8_t msg_id, uint8_t module_id, std::string text,
     incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 2, 2);
     and_op = and_op >> 2;
   }
+
   // message
   for (int i = 0 ; i < length ; i++)
   {

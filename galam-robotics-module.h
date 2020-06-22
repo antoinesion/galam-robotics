@@ -9,6 +9,7 @@
 #define UNKNOWN_ITF 4 // code pour une interface inconnue
 #define BUFFSIZE 32 // taille en octet des transmissions
 #define NB_MAX_SBMSG 4 // nombre maximal de sous-messages
+#define UNKNOWN_INIT_ID 0 // code pour un id d'init inconnu
 #define INIT 0 // code pour un message de type init
 #define INIT_R 1 // code pour un message de type init_r
 #define IDENTIFICATION 2 // code pour un message d'identification
@@ -21,14 +22,13 @@
 #define END_SEGMENT_ROUTING 3 // code pour signaler la fin du segment routing dans un message
 
 // codes d'erreur de la couche réseau
-#define E_NET_MODULES_LOOP 101 // boucle de modules
-#define E_NET_UNKNOWN_MSG_TYPE 111 // type de message inconnu
-#define E_NET_UNCOMPLETE_MSG 112 // message incomplet
-#define E_NET_CANT_TRSMT_ID 121 // impossible de transmettre un message d'identification
-#define E_NET_CANT_TRSMT_MSG 122 // impossible de transmettre un message classique
-#define E_NET_UNREADABLE_INIT_R 131 // init_r illisible
-#define E_NET_UNREADABLE_SEG_RT 132 // segment routing illisible
-#define E_NET_UNREADABLE_MSG 133 // message illisible
+#define E_NET_UNKNOWN_MSG_TYPE 101 // type de message inconnu
+#define E_NET_UNCOMPLETE_MSG 102 // message incomplet
+#define E_NET_CANT_TRSMT_ID 111 // impossible de transmettre un message d'identification
+#define E_NET_CANT_TRSMT_MSG 112 // impossible de transmettre un message classique
+#define E_NET_UNREADABLE_INIT_R 121 // init_r illisible
+#define E_NET_UNREADABLE_SEG_RT 122 // segment routing illisible
+#define E_NET_UNREADABLE_MSG 123 // message illisible
 
 /* --- INFORMATIONS ---
  * Le protocole de communication est codé de façon à pouvoir transmettre des messages répartis en
@@ -51,7 +51,7 @@ int Receive_IT(uint8_t itf, uint8_t *pData, uint8_t length);
  * de l'interface sur laquelle le message a été reçu. */
 int RxCallback(uint8_t itf);
 
-/* --- Envoi de message --- 
+/* --- Transmission d'un message --- 
  * Renvoie 0 en cas d'erreur et 1 en cas de succès : En cas de succès, transmet length octet contenus
  * dans la memoire à partir du pointeur pData sur l'interface itf. Si le message n'est pas reçu par 
  * le recepteur au bout de Timeout ms, l'envoi s'arrête et la fonction renvoie 0. */

@@ -112,36 +112,40 @@ void Module::Handle_Message(uint8_t itf, uint8_t *pData)
 
 void Module::Handle_Message_init(uint8_t itf, uint8_t *pData)
 {
-  if (father_itf != UNKNOWN_ITF && itf != father_itf && !init_r_sent)
-    // si on a déjà reçu l'init mais qu'on le reçoit à nouveau depuis une interface qui n'est pas celle
-    // du père et que l'init_r n'a pas encore été envoyé, cela signifie qu'il y a une boucle dans l'arbre
-    // des modules
+  if (init_id == pData[1])
+    // si on déjà reçu cet init, cela signifie qu'il y a une boucle de module
   {
-    // on prévient alors la source de ce problème
-
-    // le contenu du message
-    std::string msg_content = "boucle de modules avec l'interface ITF" + std::to_string(unsigned(itf));
-
-    // longueur du message
-    const uint8_t length = msg_content.size();
-
-    // le message d'erreur
-    uint8_t error_msg[length];
-    // on remplit avec le contenu du message
-    for (int i = 0; i < length; i++)
+    // pour rectifier cela, on enlève le module des fils
+    if (son_itfs[0] == itf)
     {
-      error_msg[i] = (uint8_t) msg_content[i];
+      son_itfs[0] = son_itfs[1];
+      son_itfs[1] = UNKNOWN_ITF;
+      son_nb--;
     }
-    // on envoie le message d'erreur à la source
-    Send_Error_Message_to_Source(E_NET_MODULES_LOOP, error_msg, length);
+    else if (son_itfs[1] == itf)
+    {
+      son_itfs[1] = UNKNOWN_ITF;
+      son_nb--;
+    }
+
+    // on envoie l'init_r si nécessaire
+    if (compareArrays(msg_stored, msg_to_store, 3))
+      // on compare les tableaux du nombre de sous-messages stockés par interface
+      // avec celui du nombre de sous-message que l'on doit stocker par interface
+    {
+      // si les deux sont égaux, on envoie l'init_r
+      Send_init_r();
+    }
   }
   else
     // sinon, on peut initialiser ou réinitialiser le module
   {
+    // on enregistre l'id de l'init
+    init_id = pData[1];
+
     // on reset toutes les variables (utile dans le cas du réinitialisation des modules)
     for (int i = 0; i < NB_ITF - 1; i++) {son_itfs[i] = UNKNOWN_ITF;}
     son_nb = 0;
-    init_r_sent = false;
     for (int interface = 0; interface < NB_ITF; interface++) {Empty_Storage(interface);}
     id = 0;
 
@@ -376,6 +380,9 @@ void Module::Handle_Message_Identification(uint8_t *pData)
 	}
       }
       std::cout << std::endl;
+
+      last_message_id = id;
+      last_message = "id modifié !";
 
       // on vide le stockage de l'interface du père
       Empty_Storage(father_itf);
@@ -1570,8 +1577,12 @@ void Module::print(int depth)
 uint8_t Module::Send_init()
 {
   uint8_t open_itf = this->get_random_itf();
+
+  uint8_t msg_id = (rand() % 254) + 1;
+
   uint8_t init_msg[BUFFSIZE] = {0};
   init_msg[0] = 0b00000001;
+  init_msg[1] = msg_id;
 
   for (int byte_i = 0; byte_i < BUFFSIZE; byte_i++)
   {
