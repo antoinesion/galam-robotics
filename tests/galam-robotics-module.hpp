@@ -59,17 +59,17 @@ class Module
   
     // le reste est necessaire pour les tests
     uint8_t received[NB_ITF][NB_MAX_SBMSG][BUFFSIZE] = {0};
-    int received_nb[3] = {0, 0, 0};
     Module* connections[3] = {NULL, NULL, NULL};
     uint8_t connections_other_side_itf[3] = {UNKNOWN_ITF, UNKNOWN_ITF, UNKNOWN_ITF};
     uint8_t son_itfs_to_print[2] = {UNKNOWN_ITF, UNKNOWN_ITF};
-    std::string last_message = "";
     uint8_t last_message_id = 0;
     bool show_trsmt = true;
     bool init_r_sent = false;
     
   public:
     uint16_t id = UNKNOWN_ID;  // id du module (modifiable grâce au message de type "identification")
+    int received_nb[3] = {0, 0, 0};
+    std::string last_message = "";
 
     Module ();
 
@@ -187,7 +187,7 @@ class Module
     void deco_itf(uint8_t itf);
     void print(int depth = 0);
     uint8_t Transmit(uint8_t itf, uint8_t *pData);
-    void Handle_All_Message();
+    void Handle_Message_from_itf(int itf);
     uint8_t Send_init();
     void Send_Message(uint8_t entry_itf, uint8_t *pData);
     void Show_Trsmt(bool show);

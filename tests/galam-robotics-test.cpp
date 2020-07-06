@@ -184,12 +184,10 @@ void Send_Message_to_Multiple_Modules(uint8_t msg_id, std::vector<uint8_t> modul
   {
     message[write_msg_i][write_byte_i] += (1 << write_offset);
     seg_rts.erase(seg_rts.begin());
-    std::cout << "R ";
   }
   else
   {
     message[write_msg_i][write_byte_i] += (0 << write_offset);
-    std::cout << "NR ";
   }
   incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 1, 2);
 
@@ -220,7 +218,6 @@ void Send_Message_to_Multiple_Modules(uint8_t msg_id, std::vector<uint8_t> modul
       message[write_msg_i][write_byte_i] += (END_NODE & 0b00000001) << write_offset;
       incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 1, 2);
       actual_path.erase(actual_path.end()-1);
-      std::cout << "EN ";
     }
     else
     {
@@ -231,17 +228,14 @@ void Send_Message_to_Multiple_Modules(uint8_t msg_id, std::vector<uint8_t> modul
 	message[write_msg_i][write_byte_i] += (seg_rts[0][i] & 0b00000001) << write_offset;
 	incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 1, 2);
 	actual_path.push_back(seg_rts[0][i]);
-	std::cout << "T" << unsigned(seg_rts[0][i]) << " ";
 	
 	if (i != seg_rts[0].size() - 1)
 	{
 	  message[write_msg_i][write_byte_i] += 0 << write_offset;
-	  std::cout << "NR ";
 	}
 	else
 	{
 	  message[write_msg_i][write_byte_i] += 1 << write_offset;
-	  std::cout << "R ";
 	}
 	incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 1, 2);
       }
@@ -253,7 +247,6 @@ void Send_Message_to_Multiple_Modules(uint8_t msg_id, std::vector<uint8_t> modul
   incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 1, 2);
   message[write_msg_i][write_byte_i] += (END_NODE & 0b00000001) << write_offset;
   incr_indexes(&write_msg_i, &write_byte_i, &write_offset, NULL, 1, 2);
-  std::cout << "EN " << std::endl;
 
   // message length
   uint8_t and_op = 0b10000000;
@@ -406,7 +399,7 @@ int main()
     else if (aswr == "send init")
     {
       entry_itf = modules[0].Send_init();
-      std::cout << "init sent!" << std::endl;
+      std::cout << "init envoyé !" << std::endl;
     }
     else if (aswr == "read init_r")
     {
@@ -492,9 +485,28 @@ int main()
     else
     {
       Identification_Process(modules);
+      bool msg_to_handle[NB_MODULES][3] = {false};
+      for (int i = 0; i < NB_MODULES; i++)
+      {
+	for (int itf = 0; itf < NB_ITF; itf++)
+	{
+	  if (modules[i].received_nb[itf] > 0)
+	  {
+	    msg_to_handle[i][itf] = true;
+	  }
+	}
+      }
+
       for (int i = 0; i < NB_MODULES ; i++)
       {
-	modules[i].Handle_All_Message();
+	modules[i].last_message = "";
+	for (int itf = 0; itf < NB_ITF; itf++)
+	{
+	  if (msg_to_handle[i][itf])
+	  {
+	    modules[i].Handle_Message_from_itf(itf);
+	  }
+	}
       }
     }
   }

@@ -1482,17 +1482,13 @@ uint8_t Module::Transmit(uint8_t itf, uint8_t *pData)
   }
 }
 
-void Module::Handle_All_Message()
+void Module::Handle_Message_from_itf(int itf)
 {
-  last_message = "";
-  for (int itf = 0; itf < NB_ITF; itf++)
+  for (int msg_i = 0; msg_i < received_nb[itf]; msg_i++)
   {
-    for (int msg_i = 0; msg_i < received_nb[itf]; msg_i++)
-    {
-      Handle_Message(itf, received[itf][msg_i]);
-    }
-    received_nb[itf] = 0;
+    Handle_Message(itf, received[itf][msg_i]);
   }
+  received_nb[itf] = 0;
 }
 
 uint8_t Module::get_random_itf()
@@ -1555,7 +1551,7 @@ void Module::print(int depth)
 
   std::string space(9 * depth, ' ');
   std::cout << space;
-  std::cout << unsigned(connections_other_side_itf[father_itf]) << "->" << unsigned(father_itf) << " ";
+  std::cout << unsigned(connections_other_side_itf[father_itf]) << "<->" << unsigned(father_itf) << " ";
   std::cout << "MOD" << unsigned(id) << " ";
   std::cout << state << " ";
   std::cout << received_nb[0] + received_nb[1] + received_nb[2] << "M ";
